@@ -37,12 +37,12 @@ async fn main() -> std::io::Result<()> {
         .parse()
         .expect("PORT should be a valid u16");
 
-
-    let data = web::Data::new(RwLock::new(AppState::new(width, height)));
     let database = Database::new()
         .expect("Error connecting to database");
     database.create_tables()
         .expect("Error creating tables");
+
+    let data = web::Data::new(RwLock::new(AppState::new(width, height)));
 
     HttpServer::new(move || {
         App::new()
