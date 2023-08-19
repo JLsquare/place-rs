@@ -98,13 +98,20 @@ impl AppState {
     }
 
     pub fn send_verification_mail(&self, email: &str, token: &str) {
-        let from_address = "place.vannes.verif@outlook.com".parse();
+        let from_address = env::var("SMTP_USER")
+            .expect("SMTP_USER must be set");
+
+        let url = env::var("URL")
+            .expect("URL must be set");
+
+        let from_address = from_address.parse();
         let to_address = email.parse();
 
         if let (Ok(from_address), Ok(to_address)) = (from_address, to_address) {
             let email_body = format!(
-                "Click on this link to verify your account: http://localhost:8080/api/verify/{}",
-                token
+                "Click on this link to verify your account: {}/api/verify/{}",
+                url,
+                token,
             );
             let email = lettre::Message::builder()
                 .from(from_address)
@@ -126,7 +133,6 @@ impl AppState {
             println!("Error parsing email addresses");
         }
     }
-
 
     pub fn add_session(&self, session: Addr<PlaceWebSocketConnection>) {
         match self.sessions.write() {
