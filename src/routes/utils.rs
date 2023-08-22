@@ -1,5 +1,5 @@
 use actix_web::{HttpRequest, HttpResponse};
-use jsonwebtoken::{Algorithm, decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]

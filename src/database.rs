@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::env;
 
+use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use thiserror::Error;
-use r2d2_sqlite::SqliteConnectionManager;
 
 use crate::models::user::User;
 use crate::routes::user::ProfileEdit;
@@ -34,8 +34,7 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Result<Self, DatabaseError> {
-        let db_url: String = env::var("DB_URL")
-            .expect("DB_URL environment variable not set");
+        let db_url: String = env::var("DB_URL").expect("DB_URL environment variable not set");
         let manager = SqliteConnectionManager::file(db_url);
         let pool = r2d2::Pool::new(manager)?;
         Ok(Self { pool })
@@ -75,7 +74,13 @@ impl Database {
         Ok(())
     }
 
-    pub fn signup(&self, username: &str, password: &str, email: &str, verification_code: &str) -> Result<u16, DatabaseError> {
+    pub fn signup(
+        &self,
+        username: &str,
+        password: &str,
+        email: &str,
+        verification_code: &str,
+    ) -> Result<u16, DatabaseError> {
         let hash = bcrypt::hash(password, bcrypt::DEFAULT_COST)?;
         let connection = self.pool.get()?;
 
@@ -90,7 +95,8 @@ impl Database {
     pub fn verify(&self, verification_code: &str) -> Result<u16, DatabaseError> {
         let connection = self.pool.get()?;
 
-        let mut statement = connection.prepare("SELECT user_id FROM users WHERE verification_code = ?1")?;
+        let mut statement =
+            connection.prepare("SELECT user_id FROM users WHERE verification_code = ?1")?;
         let mut rows = statement.query(params![verification_code])?;
         if let Some(row) = rows.next()? {
             let id: i64 = row.get(0)?;
@@ -107,7 +113,8 @@ impl Database {
     pub fn login(&self, username: &str, password: &str) -> Result<Option<u16>, DatabaseError> {
         let connection = self.pool.get()?;
 
-        let mut statement = connection.prepare("SELECT user_id, password FROM users WHERE username = ?1")?;
+        let mut statement =
+            connection.prepare("SELECT user_id, password FROM users WHERE username = ?1")?;
         let mut rows = statement.query(params![username])?;
 
         if let Some(row) = rows.next()? {
@@ -143,7 +150,11 @@ impl Database {
         }
     }
 
-    pub fn get_pixels(&self, width: usize, height: usize) -> Result<(Vec<u8>, Vec<u16>), DatabaseError> {
+    pub fn get_pixels(
+        &self,
+        width: usize,
+        height: usize,
+    ) -> Result<(Vec<u8>, Vec<u16>), DatabaseError> {
         let connection = self.pool.get()?;
         let mut statement = connection.prepare(
             "SELECT pixels.x, pixels.y, pixels.user, pixels.color
@@ -190,13 +201,16 @@ impl Database {
             let username: String = row.get(1)?;
             let pixel_count: i64 = row.get(2)?;
             let verified: i64 = row.get(3)?;
-            users.insert(id as u16, User {
-                username,
-                cooldown: 0,
-                rank: 0,
-                verified: verified == 1,
-                score: pixel_count as u32,
-            });
+            users.insert(
+                id as u16,
+                User {
+                    username,
+                    cooldown: 0,
+                    rank: 0,
+                    verified: verified == 1,
+                    score: pixel_count as u32,
+                },
+            );
         }
 
         Ok(users)
@@ -206,14 +220,16 @@ impl Database {
         let connection = self.pool.get()?;
 
         if profile_edit.password.trim().is_empty() {
-            let mut statement = connection.prepare("\
-                UPDATE users SET username = ?1 WHERE user_id = ?2"
+            let mut statement = connection.prepare(
+                "\
+                UPDATE users SET username = ?1 WHERE user_id = ?2",
             )?;
             statement.execute(params![profile_edit.username, user])?;
         } else {
             let hash = bcrypt::hash(&profile_edit.password, bcrypt::DEFAULT_COST)?;
-            let mut statement = connection.prepare("\
-                UPDATE users SET username = ?1, password = ?2 WHERE user_id = ?3"
+            let mut statement = connection.prepare(
+                "\
+                UPDATE users SET username = ?1, password = ?2 WHERE user_id = ?3",
             )?;
             statement.execute(params![profile_edit.username, hash, user])?;
         }
@@ -221,7 +237,10 @@ impl Database {
         Ok(())
     }
 
-    pub fn save_pixel_updates(&mut self, updates: &Vec<DatabaseUpdate>) -> Result<(), DatabaseError> {
+    pub fn save_pixel_updates(
+        &mut self,
+        updates: &Vec<DatabaseUpdate>,
+    ) -> Result<(), DatabaseError> {
         let mut connection = self.pool.get()?;
 
         let tx = connection.transaction()?;
@@ -231,7 +250,13 @@ impl Database {
             )?;
 
             for update in updates {
-                statement.execute(params![update.x as i64, update.y as i64, update.color as i64, update.user_id, update.timestamp])?;
+                statement.execute(params![
+                    update.x as i64,
+                    update.y as i64,
+                    update.color as i64,
+                    update.user_id,
+                    update.timestamp
+                ])?;
             }
         }
         tx.commit()?;

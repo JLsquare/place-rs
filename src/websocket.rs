@@ -1,7 +1,7 @@
 use std::sync::RwLock;
 
 use actix::{Actor, ActorContext, AsyncContext, Handler, Message, StreamHandler};
-use actix_web::{get, HttpRequest, HttpResponse, web};
+use actix_web::{get, web, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use serde_derive::Serialize;
 
@@ -15,7 +15,7 @@ pub struct MessageUpdate {
     pub color: u8,
 }
 
-pub struct PlaceWebSocketConnection{
+pub struct PlaceWebSocketConnection {
     appstate: web::Data<RwLock<AppState>>,
 }
 
@@ -68,13 +68,7 @@ async fn ws_index(
     stream: web::Payload,
     data: web::Data<RwLock<AppState>>,
 ) -> HttpResponse {
-    match ws::start(
-        PlaceWebSocketConnection {
-            appstate: data,
-        },
-        &req,
-        stream,
-    ) {
+    match ws::start(PlaceWebSocketConnection { appstate: data }, &req, stream) {
         Ok(response) => response,
         Err(error) => {
             println!("Error starting websocket: {}", error);

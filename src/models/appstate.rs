@@ -5,7 +5,7 @@ use std::sync::RwLock;
 use actix::Addr;
 use chrono::Utc;
 use image::{ImageBuffer, Rgb};
-use lettre::{Transport, transport::smtp};
+use lettre::{transport::smtp, Transport};
 use regex::Regex;
 
 use crate::database;
@@ -35,14 +35,12 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(width: usize, height: usize) -> Self {
-        let db = database::Database::new()
-            .expect("Error connecting to database");
+        let db = database::Database::new().expect("Error connecting to database");
 
-        let (pixels_color, pixels_user) = db.get_pixels(width, height)
-            .expect("Error getting pixels");
+        let (pixels_color, pixels_user) =
+            db.get_pixels(width, height).expect("Error getting pixels");
 
-        let users = db.get_users()
-            .expect("Error getting users");
+        let users = db.get_users().expect("Error getting users");
 
         let smtp_server = env::var("SMTP_SERVER").expect("SMTP_SERVER must be set");
         let smtp_port: u16 = env::var("SMTP_PORT")
@@ -55,27 +53,25 @@ impl AppState {
         let mailer = lettre::SmtpTransport::starttls_relay(&smtp_server)
             .expect("Error starting mail relay")
             .port(smtp_port)
-            .credentials(
-                smtp::authentication::Credentials::new(
-                    smtp_user,
-                    smtp_password,
-                )
-            )
+            .credentials(smtp::authentication::Credentials::new(
+                smtp_user,
+                smtp_password,
+            ))
             .build();
 
-        let email_regex = Regex::new(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
-            .expect("Error compiling email regex");
+        let email_regex =
+            Regex::new(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
+                .expect("Error compiling email regex");
 
-        let ubs_regex = Regex::new(r"^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$")
-            .expect("Error compiling ubs regex");
+        let ubs_regex =
+            Regex::new(r"^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$").expect("Error compiling ubs regex");
 
         let cooldown = env::var("COOLDOWN_SEC")
             .expect("COOLDOWN must be set")
             .parse::<u16>()
             .expect("COOLDOWN should be a valid u16");
 
-        let jwt_secret = env::var("JWT_SECRET")
-            .expect("JWT_SECRET must be set");
+        let jwt_secret = env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
         let update_cooldown = env::var("UPDATE_COOLDOWN_SEC")
             .expect("UPDATE_COOLDOWN_SEC must be set")
@@ -114,7 +110,7 @@ impl AppState {
             (81, 82, 82),
             (137, 141, 144),
             (212, 215, 217),
-            (255, 255, 255)
+            (255, 255, 255),
         ]);
 
         Self {
@@ -150,21 +146,15 @@ impl AppState {
             user_id,
             timestamp: Utc::now().timestamp(),
         });
-        let message_update = MessageUpdate {
-            x,
-            y,
-            color,
-        };
+        let message_update = MessageUpdate { x, y, color };
         self.message_updates.push(message_update);
         self.broadcast(message_update);
     }
 
     pub fn send_verification_mail(&self, email: &str, token: &str) {
-        let from_address = env::var("SMTP_USER")
-            .expect("SMTP_USER must be set");
+        let from_address = env::var("SMTP_USER").expect("SMTP_USER must be set");
 
-        let url = env::var("URL")
-            .expect("URL must be set");
+        let url = env::var("URL").expect("URL must be set");
 
         let from_address = from_address.parse();
         let to_address = email.parse();
@@ -172,8 +162,7 @@ impl AppState {
         if let (Ok(from_address), Ok(to_address)) = (from_address, to_address) {
             let email_body = format!(
                 "Click on this link to verify your account: {}/api/verify/{}",
-                url,
-                token,
+                url, token,
             );
             let email = lettre::Message::builder()
                 .from(from_address)
@@ -235,7 +224,8 @@ impl AppState {
         let mut new_png: Vec<u8> = Vec::new();
         {
             let mut cursor = std::io::Cursor::new(&mut new_png);
-            image.write_to(&mut cursor, image::ImageOutputFormat::Png)
+            image
+                .write_to(&mut cursor, image::ImageOutputFormat::Png)
                 .map_err(|err| format!("Error writing image: {}", err))?;
         }
 

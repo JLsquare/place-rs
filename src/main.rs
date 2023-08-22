@@ -1,20 +1,23 @@
 mod database;
-mod websocket;
 mod models;
 mod routes;
+mod websocket;
 
 use std::env;
 use std::sync::RwLock;
 
 use actix_cors::Cors;
-use actix_web::{App, HttpServer, web};
 use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder};
+use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 
-use crate::models::appstate::AppState;
 use crate::database::Database;
-use crate::routes::place::{draw, get_cooldown, get_leaderboard, get_png, get_profile, get_size, get_updates, get_username, get_users_connected, get_users_count};
+use crate::models::appstate::AppState;
+use crate::routes::place::{
+    draw, get_cooldown, get_leaderboard, get_png, get_profile, get_size, get_updates, get_username,
+    get_users_connected, get_users_count,
+};
 use crate::routes::user::{edit_profile, login, signup, verify};
 use crate::websocket::ws_index;
 
@@ -32,8 +35,7 @@ async fn main() -> std::io::Result<()> {
         .parse()
         .expect("HEIGHT should be a valid usize");
 
-    let bind_address = env::var("BIND_ADDRESS")
-        .expect("BIND_ADDRESS must be set");
+    let bind_address = env::var("BIND_ADDRESS").expect("BIND_ADDRESS must be set");
 
     let port: u16 = env::var("PORT")
         .expect("PORT must be set")
@@ -50,14 +52,11 @@ async fn main() -> std::io::Result<()> {
         .parse()
         .expect("BURST_SIZE should be a valid u32");
 
-    let database = Database::new()
-        .expect("Error connecting to database");
-    database.create_tables()
-        .expect("Error creating tables");
+    let database = Database::new().expect("Error connecting to database");
+    database.create_tables().expect("Error creating tables");
 
     let mut appstate = AppState::new(width, height);
-    appstate.try_update()
-        .expect("Error updating appstate");
+    appstate.try_update().expect("Error updating appstate");
 
     let appstate = web::Data::new(RwLock::new(appstate));
     let database = web::Data::new(database);
@@ -97,7 +96,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_username)
             .service(Files::new("/", "public").index_file("index.html"))
     })
-        .bind((bind_address, port))?
-        .run()
-        .await
+    .bind((bind_address, port))?
+    .run()
+    .await
 }

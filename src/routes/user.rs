@@ -1,15 +1,15 @@
 use std::sync::RwLock;
 
-use actix_web::{get, HttpRequest, HttpResponse, post, Responder, web};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use chrono::{Duration, Utc};
-use serde_derive::Deserialize;
-use jsonwebtoken::{Algorithm, encode, EncodingKey, Header};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use rand::Rng;
+use serde_derive::Deserialize;
 
-use crate::models::appstate::AppState;
 use crate::database;
+use crate::models::appstate::AppState;
 use crate::models::user::User;
-use crate::routes::utils::{Claims, token_to_id};
+use crate::routes::utils::{token_to_id, Claims};
 
 #[derive(Deserialize)]
 struct LoginInfo {
@@ -35,12 +35,14 @@ pub struct ProfileEdit {
 async fn login(
     appstate: web::Data<RwLock<AppState>>,
     database: web::Data<database::Database>,
-    info: web::Json<LoginInfo>
+    info: web::Json<LoginInfo>,
 ) -> impl Responder {
     let user_id = match database.login(&info.username, &info.password) {
         Ok(Some(id)) => id,
         Ok(None) => return HttpResponse::Unauthorized().body("invalid credentials"),
-        Err(err) => return HttpResponse::InternalServerError().body(format!("database error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
+        }
     };
 
     let claims = Claims {
@@ -50,16 +52,20 @@ async fn login(
 
     let appstate = match appstate.read() {
         Ok(appstate) => appstate,
-        Err(err) => return HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
+        }
     };
 
     match encode(
         &Header::new(Algorithm::HS512),
         &claims,
-        &EncodingKey::from_secret(&appstate.jwt_secret().as_bytes()),
+        &EncodingKey::from_secret(appstate.jwt_secret().as_bytes()),
     ) {
         Ok(token) => HttpResponse::Ok().body(token),
-        Err(err) => return HttpResponse::InternalServerError().body(format!("token encoding error : {}", err)),
+        Err(err) => {
+            HttpResponse::InternalServerError().body(format!("token encoding error : {}", err))
+        }
     }
 }
 
@@ -71,7 +77,9 @@ async fn signup(
 ) -> impl Responder {
     let mut appstate = match appstate.write() {
         Ok(appstate) => appstate,
-        Err(err) => return HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
+        }
     };
 
     if !appstate.email_regex().is_match(&info.email) {
@@ -96,9 +104,16 @@ async fn signup(
         .map(char::from)
         .collect::<String>();
 
-    let user_id = match database.signup(&info.username, &info.password, &info.email, &verification_code) {
+    let user_id = match database.signup(
+        &info.username,
+        &info.password,
+        &info.email,
+        &verification_code,
+    ) {
         Ok(id) => id,
-        Err(err) => return HttpResponse::InternalServerError().body(format!("database error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
+        }
     };
 
     let user = User::new(info.username.clone(), 0, false);
@@ -113,16 +128,20 @@ async fn signup(
 async fn verify(
     appstate: web::Data<RwLock<AppState>>,
     database: web::Data<database::Database>,
-    token: web::Path<String>
+    token: web::Path<String>,
 ) -> impl Responder {
     let user_id = match database.verify(&token) {
         Ok(id) => id,
-        Err(err) => return HttpResponse::InternalServerError().body(format!("database error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
+        }
     };
 
     let mut appstate = match appstate.write() {
         Ok(appstate) => appstate,
-        Err(err) => return HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
+        }
     };
 
     match appstate.get_user_mut(user_id) {
@@ -142,10 +161,12 @@ async fn edit_profile(
 ) -> impl Responder {
     let mut appstate = match appstate.write() {
         Ok(appstate) => appstate,
-        Err(err) => return HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
+        }
     };
 
-    let user_id = match token_to_id(req, &appstate.jwt_secret().as_bytes()) {
+    let user_id = match token_to_id(req, appstate.jwt_secret().as_bytes()) {
         Ok(username) => username,
         Err(response) => return response,
     };
@@ -161,7 +182,9 @@ async fn edit_profile(
     match database.check_password(user_id, &info.current_password) {
         Ok(true) => (),
         Ok(false) => return HttpResponse::Unauthorized().body("invalid credentials"),
-        Err(err) => return HttpResponse::InternalServerError().body(format!("database error : {}", err)),
+        Err(err) => {
+            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
+        }
     };
 
     let user = match appstate.get_user_mut(user_id) {
