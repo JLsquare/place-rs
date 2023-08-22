@@ -56,7 +56,7 @@ async fn login(
     match encode(
         &Header::new(Algorithm::HS512),
         &claims,
-        &EncodingKey::from_secret(&appstate.jwt_secret.as_bytes()),
+        &EncodingKey::from_secret(&appstate.jwt_secret().as_bytes()),
     ) {
         Ok(token) => HttpResponse::Ok().body(token),
         Err(err) => return HttpResponse::InternalServerError().body(format!("token encoding error : {}", err)),
@@ -74,11 +74,11 @@ async fn signup(
         Err(err) => return HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
     };
 
-    if !appstate.email_regex.is_match(&info.email) {
+    if !appstate.email_regex().is_match(&info.email) {
         return HttpResponse::BadRequest().body("Invalid email format");
     }
 
-    if !appstate.ubs_regex.is_match(&info.email) {
+    if !appstate.ubs_regex().is_match(&info.email) {
         return HttpResponse::BadRequest().body("Invalid email domain");
     }
 
@@ -145,7 +145,7 @@ async fn edit_profile(
         Err(err) => return HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
     };
 
-    let user_id = match token_to_id(req, &appstate.jwt_secret.as_bytes()) {
+    let user_id = match token_to_id(req, &appstate.jwt_secret().as_bytes()) {
         Ok(username) => username,
         Err(response) => return response,
     };
