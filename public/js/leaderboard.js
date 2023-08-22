@@ -1,4 +1,7 @@
 let leaderboard = document.getElementById('leaderboardList');
+let reloadButton = document.getElementById('reloadButton');
+
+reloadButton.addEventListener('click', getLeaderboard);
 
 function getLeaderboard() {
     fetch('/api/leaderboard')
@@ -6,17 +9,18 @@ function getLeaderboard() {
             return response.json();
         })
         .then((data) => {
-            data.forEach((user) => {
+            leaderboard.innerHTML = '';
+            data.forEach(user => {
                 let userElement = document.createElement('div');
                 userElement.className = 'leaderboard-user';
 
-                let userName = document.createElement('div');
+                let userName = document.createElement('p');
                 userName.className = 'leaderboard-name';
-                userName.innerHTML = user[0];
+                userName.innerHTML = `${user.rank}. ${user.username}`;
 
-                let userPixels = document.createElement('div');
+                let userPixels = document.createElement('p');
                 userPixels.className = 'leaderboard-pixels';
-                userPixels.innerHTML = user[1];
+                userPixels.innerHTML = user.score;
 
                 userElement.appendChild(userName);
                 userElement.appendChild(userPixels);

@@ -1,8 +1,19 @@
 use std::sync::RwLock;
-use actix::{Actor, ActorContext, AsyncContext, Handler, StreamHandler};
+
+use actix::{Actor, ActorContext, AsyncContext, Handler, Message, StreamHandler};
 use actix_web::{get, HttpRequest, HttpResponse, web};
 use actix_web_actors::ws;
-use crate::appstate::{AppState, UpdateMessage};
+use serde_derive::Serialize;
+
+use crate::models::appstate::AppState;
+
+#[derive(Message, Clone, Copy, Serialize)]
+#[rtype(result = "()")]
+pub struct MessageUpdate {
+    pub x: usize,
+    pub y: usize,
+    pub color: u8,
+}
 
 pub struct PlaceWebSocketConnection{
     appstate: web::Data<RwLock<AppState>>,
@@ -24,10 +35,10 @@ impl Actor for PlaceWebSocketConnection {
     }
 }
 
-impl Handler<UpdateMessage> for PlaceWebSocketConnection {
+impl Handler<MessageUpdate> for PlaceWebSocketConnection {
     type Result = ();
 
-    fn handle(&mut self, msg: UpdateMessage, ctx: &mut Self::Context) {
+    fn handle(&mut self, msg: MessageUpdate, ctx: &mut Self::Context) {
         let text = match serde_json::to_string(&msg) {
             Ok(text) => text,
             Err(_) => {
