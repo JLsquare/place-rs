@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::{env, fs};
 use std::sync::RwLock;
+use std::{env, fs};
 
 use actix::Addr;
 use chrono::Utc;
@@ -11,8 +11,8 @@ use regex::Regex;
 use crate::database;
 use crate::database::DatabaseUpdate;
 use crate::models::user::User;
+use crate::models::utils::{hex_to_rgb, ColorFile};
 use crate::websocket::{MessageUpdate, PlaceWebSocketConnection};
-use crate::models::utils::{ColorFile, hex_to_rgb};
 
 pub struct AppState {
     width: usize,
@@ -79,11 +79,12 @@ impl AppState {
             .parse::<u16>()
             .expect("UPDATE_COOLDOWN_SEC should be a valid u16");
 
-        let colors_str = fs::read_to_string("public/misc/colors.json")
-            .expect("Error reading colors file");
-        let color_file = serde_json::from_str::<ColorFile>(&colors_str)
-            .expect("Error parsing colors file");
-        let palette: Vec<(u8, u8, u8)> = color_file.colors
+        let colors_str =
+            fs::read_to_string("public/misc/colors.json").expect("Error reading colors file");
+        let color_file =
+            serde_json::from_str::<ColorFile>(&colors_str).expect("Error parsing colors file");
+        let palette: Vec<(u8, u8, u8)> = color_file
+            .colors
             .iter()
             .map(|color| hex_to_rgb(color))
             .collect();
