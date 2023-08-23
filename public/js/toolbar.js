@@ -10,6 +10,7 @@ function deselectColor() {
     }
     selectedColor = -1;
     cursor.style.backgroundColor = "transparent";
+    selectedPixel.style.backgroundColor = "transparent";
 }
 
 function initPalette() {
@@ -58,6 +59,8 @@ function initPalette() {
             colorBlock.className = 'color-block selected-color-block';
             oldSelectedColorBlock = colorBlock;
             cursor.style.backgroundColor = color + "bb";
+            selectedPixel.style.backgroundColor = color + "bb";
+            showDrawButton();
         });
         colorPicker.appendChild(colorBlock);
     });
@@ -67,15 +70,27 @@ function switchState(state) {
     if(state === "cooldown") {
         cooldownButton.style.display = "block";
         colorPicker.style.display = "none";
+        drawButton.style.display = "none";
         notConnected.style.display = "none";
     } else if(state === "palette") {
         cooldownButton.style.display = "none";
         colorPicker.style.display = "grid";
+        showDrawButton();
         notConnected.style.display = "none";
     } else if(state === "notConnected") {
         cooldownButton.style.display = "none";
         colorPicker.style.display = "none";
+        drawButton.style.display = "none";
         notConnected.style.display = "block";
+    }
+}
+
+function showDrawButton() {
+    if(oldPixel.x !== -1 && oldPixel.y !== -1 && selectedColor !== -1) {
+        console.log("displaying draw button");
+        drawButton.style.display = "block";
+    } else {
+        drawButton.style.display = "none";
     }
 }
 

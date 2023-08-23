@@ -1,6 +1,6 @@
 let pixelInfo = document.getElementById("pixelInfo");
 
-let oldPixel = { x: 0, y: 0 };
+let oldPixel = { x: -1, y: -1 };
 
 async function updatePixelInfo() {
     if (pixel.x !== oldPixel.x || pixel.y !== oldPixel.y) {
@@ -8,6 +8,7 @@ async function updatePixelInfo() {
         if (response.ok) {
             let username = await response.text();
             pixelInfo.innerHTML = `(${pixel.x}, ${pixel.y}) ${username}`;
+            oldPixel = { x: pixel.x, y: pixel.y };
         }
     }
 }

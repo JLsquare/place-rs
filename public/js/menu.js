@@ -20,6 +20,7 @@ let signupUsernameError = document.getElementById('signupUsernameError');
 let signupPasswordError = document.getElementById('signupPasswordError');
 
 let profileDiv = document.getElementById('profile');
+let profileReloadButton = document.getElementById('profileReloadButton');
 let profilePlacedPixels = document.getElementById('profilePlacedPixels');
 let profileRank = document.getElementById('profileRank');
 let profileUsername = document.getElementById('profileUsername');
@@ -165,6 +166,7 @@ function login() {
         if (response.ok) {
             let token = await response.text();
             localStorage.setItem('token', token);
+            await getProfile();
             openProfile();
             toggleMenu();
             switchState("palette");
@@ -230,6 +232,11 @@ function signup() {
 }
 
 async function getProfile() {
+    profileReloadButton.classList.toggle('rotate')
+    profileReloadButton.onanimationend = () => {
+        profileReloadButton.classList.toggle('rotate')
+    }
+
     const token = localStorage.getItem("token");
 
     if (token === null) {
@@ -268,6 +275,7 @@ async function getProfile() {
     }
 }
 
+profileReloadButton.addEventListener('click', getProfile);
 
 setupListeners();
 toggleMenu();

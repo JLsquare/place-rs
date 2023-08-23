@@ -4,6 +4,11 @@ let reloadButton = document.getElementById('reloadButton');
 reloadButton.addEventListener('click', getLeaderboard);
 
 function getLeaderboard() {
+    reloadButton.classList.toggle('rotate')
+    reloadButton.onanimationend = () => {
+        reloadButton.classList.toggle('rotate')
+    }
+
     fetch('/api/leaderboard')
         .then((response) => {
             return response.json();

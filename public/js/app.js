@@ -1,5 +1,7 @@
 let cursor = document.getElementById("cursor");
 let canvas = document.getElementById("canvas");
+let selectedPixel = document.getElementById("selectedPixel");
+let drawButton = document.getElementById("drawButton");
 let ctx = canvas.getContext('2d');
 
 ctx.imageSmoothingEnabled = false;
@@ -24,7 +26,9 @@ let socket;
 let localCooldown = 0;
 
 function initSocket() {
-    socket = new WebSocket(`ws://${window.location.host}/api/ws`);
+    let wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+
+    socket = new WebSocket(`${wsProtocol}://${window.location.host}/api/ws`);
 
     socket.onmessage = function(event) {
         let data = JSON.parse(event.data);
@@ -49,8 +53,8 @@ function sendPixel() {
             'Authorization': token
         },
         body: JSON.stringify({
-            x: pixel.x,
-            y: pixel.y,
+            x: oldPixel.x,
+            y: oldPixel.y,
             user: 0,
             color: selectedColor
         })
@@ -120,6 +124,15 @@ function cursorPosition(event){
     cursor.style.height = `${currentZoom * 1.2}px`;
 }
 
+function selectedPixelPosition(){
+    const canvasBounds = canvas.getBoundingClientRect();
+
+    selectedPixel.style.left = `${canvasBounds.left + (oldPixel.x + 1) * currentZoom - currentZoom}px`;
+    selectedPixel.style.top = `${canvasBounds.top + (oldPixel.y + 1) * currentZoom - currentZoom}px`;
+    selectedPixel.style.width = `${currentZoom}px`;
+    selectedPixel.style.height = `${currentZoom}px`;
+}
+
 canvas.addEventListener('wheel', (event) => {
     event.preventDefault();
 
@@ -133,6 +146,7 @@ canvas.addEventListener('wheel', (event) => {
     canvas.style.transform = `translate(${offset.x}px, ${offset.y}px) scale(${currentZoom})`;
 
     cursorPosition(event);
+    selectedPixelPosition();
 });
 
 canvas.addEventListener('mousedown', (event) => {
@@ -145,7 +159,7 @@ canvas.addEventListener('mouseup', () => {
     if (isDragging) {
         setTimeout(() => {
             recentlyDragged = false;
-        }, 100);
+        }, 50);
     }
     isDragging = false;
 });
@@ -167,14 +181,27 @@ canvas.addEventListener('mousemove', (event) => {
     }
 
     cursorPosition(event);
+    selectedPixelPosition();
 });
 
-canvas.addEventListener('click', () => {
+canvas.addEventListener('mouseleave', () => {
+    isDragging = false;
+    cursor.classList.add("hidden");
+});
+
+canvas.addEventListener('mouseenter', () => {
+    cursor.classList.remove("hidden");
+});
+
+canvas.addEventListener('click', async () => {
     if (!recentlyDragged) {
-        updatePixelInfo();
-        sendPixel();
+        await updatePixelInfo();
+        selectedPixelPosition();
+        showDrawButton();
     }
 });
+
+drawButton.addEventListener('click', sendPixel);
 
 initPalette();
 getCooldown();
