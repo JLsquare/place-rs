@@ -13,41 +13,24 @@ function deselectColor() {
     selectedPixel.style.backgroundColor = "transparent";
 }
 
-function initPalette() {
-    colors = [
-        "#6d001a",
-        "#be0039",
-        "#ff4500",
-        "#ffa800",
-        "#ffd635",
-        "#fff8b8",
-        "#00a368",
-        "#00cc78",
-        "#7eed56",
-        "#00756f",
-        "#009eaa",
-        "#00ccc0",
-        "#2450a4",
-        "#3690ea",
-        "#51e9f4",
-        "#493ac1",
-        "#6a5cff",
-        "#94b3ff",
-        "#811e9f",
-        "#b44ac0",
-        "#e4abff",
-        "#de107f",
-        "#ff3881",
-        "#ff99aa",
-        "#6d482f",
-        "#9c6926",
-        "#ffb470",
-        "#000000",
-        "#515252",
-        "#898d90",
-        "#d4d7d9",
-        "#ffffff"
-    ];
+async function initPalette() {
+    try {
+        let response = await fetch("/misc/colors.json",
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+        if (response.ok) {
+            colors = await response.json();
+            colors = colors.colors;
+        } else {
+            console.error(await response.text());
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
 
     colors.forEach((color) => {
         const colorBlock = document.createElement('button');
@@ -58,8 +41,7 @@ function initPalette() {
             selectedColor = colors.indexOf(color);
             colorBlock.className = 'color-block selected-color-block';
             oldSelectedColorBlock = colorBlock;
-            cursor.style.backgroundColor = color + "bb";
-            selectedPixel.style.backgroundColor = color + "bb";
+            selectedPixel.style.backgroundColor = color;
             showDrawButton();
         });
         colorPicker.appendChild(colorBlock);
@@ -86,10 +68,14 @@ function switchState(state) {
 }
 
 function showDrawButton() {
-    if(oldPixel.x !== -1 && oldPixel.y !== -1 && selectedColor !== -1) {
+    if(oldPixel && oldPixel.x !== -1 && oldPixel.y !== -1 && selectedColor !== -1 && drawButton.style.display === "none") {
         console.log("displaying draw button");
         drawButton.style.display = "block";
-    } else {
+        drawButton.classList.toggle("swing-one");
+        drawButton.onanimationend = () => {
+            drawButton.classList.toggle("swing-one");
+        }
+    } else if((oldPixel && oldPixel.x === -1 && oldPixel.y === -1) || selectedColor === -1) {
         drawButton.style.display = "none";
     }
 }
@@ -126,7 +112,7 @@ function updateCooldownDisplay() {
     } else {
         switchState("cooldown");
     }
-    cooldownButton.innerHTML = `${localCooldown} seconds`;
+    cooldownButton.textContent = `${localCooldown} seconds`;
     localCooldown--;
     setTimeout(updateCooldownDisplay, 1000);
 }

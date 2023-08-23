@@ -42,76 +42,9 @@ function setupListeners() {
     saveButton.addEventListener('click', saveProfile);
 }
 
-function logout() {
-    localStorage.removeItem('token');
-    openLogin();
-    toggleMenu();
-    switchState("notConnected");
+function toggleMenu() {
+    menu.style.display = menu.style.display === "none" ? "flex" : "none";
 }
-
-function saveProfile() {
-    let token = localStorage.getItem("token");
-
-    profileUsernameError.innerHTML = "";
-
-    if(profileUsername.value.length < 3) {
-        profileUsernameError.innerHTML = "Please enter at least 3 characters.";
-        return;
-    } else if(profileUsername.value.length > 15) {
-        profileUsernameError.innerHTML = "Please enter at most 15 characters.";
-        return;
-    }
-
-    profileCurrentPasswordError.innerHTML = "";
-
-    if(!profileCurrentPassword.value) {
-        profileCurrentPasswordError.innerHTML = "Please enter your current password.";
-        return;
-    }
-
-    profilePasswordError.innerHTML = "";
-
-    if(profilePassword.value) {
-        if(profilePassword.value.length < 8) {
-            profilePasswordError.innerHTML = "Please enter at least 8 characters.";
-            return;
-        } else if(profilePassword.value.length > 128) {
-            profilePasswordError.innerHTML = "Please enter at most 128 characters.";
-            return;
-        }
-    } else {
-        profilePassword.value = "";
-    }
-
-    fetch('/api/profile/edit', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-        },
-        body: JSON.stringify({
-            username: profileUsername.value,
-            password: profilePassword.value,
-            current_password: profileCurrentPassword.value
-        })
-    }).then(async response => {
-        if (response.ok) {
-            getProfile();
-            toggleMenu();
-            getLeaderboard();
-        } else {
-            if(response.status === 401) {
-                profileCurrentPasswordError.innerHTML = "Invalid password.";
-            } else if(response.status === 409) {
-                profileUsernameError.innerHTML = "Username already taken.";
-            } else if(response.status === 400) {
-                profileUsernameError.innerHTML = "Username must be 3-15 characters long.";
-                profilePasswordError.innerHTML = "Password must be 8-128 characters long.";
-            }
-        }
-    });
-}
-
 
 function openLogin() {
     loginDiv.style.display = "flex";
@@ -131,104 +64,82 @@ function openProfile() {
     profileDiv.style.display = "flex";
 }
 
-function toggleMenu() {
-    if(menu.style.display === "none") {
-        menu.style.display = "flex";
+function logout() {
+    localStorage.removeItem('token');
+    openLogin();
+    toggleMenu();
+    switchState("notConnected");
+}
+
+async function saveProfile() {
+    let token = localStorage.getItem("token");
+
+    profileUsernameError.textContent = "";
+
+    if(profileUsername.value.length < 3) {
+        profileUsernameError.textContent = "Please enter at least 3 characters.";
+        return;
+    } else if(profileUsername.value.length > 15) {
+        profileUsernameError.textContent = "Please enter at most 15 characters.";
+        return;
+    }
+
+    profileCurrentPasswordError.textContent = "";
+
+    if(!profileCurrentPassword.value) {
+        profileCurrentPasswordError.textContent = "Please enter your current password.";
+        return;
+    }
+
+    profilePasswordError.textContent = "";
+
+    if(profilePassword.value) {
+        if(profilePassword.value.length < 8) {
+            profilePasswordError.textContent = "Please enter at least 8 characters.";
+            return;
+        } else if(profilePassword.value.length > 128) {
+            profilePasswordError.textContent = "Please enter at most 128 characters.";
+            return;
+        }
     } else {
-        menu.style.display = "none";
-    }
-}
-
-function login() {
-    if(loginUsername.value === "") {
-        loginUsernameError.innerHTML = "Please enter an username.";
-        return;
+        profilePassword.value = "";
     }
 
-    loginUsernameError.innerHTML = "";
+    try {
+        const response = await fetch('/api/profile/edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            },
+            body: JSON.stringify({
+                username: profileUsername.value,
+                password: profilePassword.value,
+                current_password: profileCurrentPassword.value
+            })
+        });
 
-    if(loginPassword.value === "") {
-        loginPasswordError.innerHTML = "Please enter a password.";
-        return;
-    }
-
-
-    fetch('/api/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            username: loginUsername.value,
-            password: loginPassword.value
-        })
-    }).then(async response => {
         if (response.ok) {
-            let token = await response.text();
-            localStorage.setItem('token', token);
-            await getProfile();
-            openProfile();
+            getProfile();
             toggleMenu();
-            switchState("palette");
+            getLeaderboard();
         } else {
-            loginUsernameError.innerHTML = "Invalid username or password.";
-            loginPasswordError.innerHTML = "Invalid username or password.";
+            switch(response.status) {
+                case 401:
+                    profileCurrentPasswordError.textContent = "Invalid password.";
+                    break;
+                case 409:
+                    profileUsernameError.textContent = "Username already taken.";
+                    break;
+                case 400:
+                    profileUsernameError.textContent = "Username must be 3-15 characters long.";
+                    profilePasswordError.textContent = "Password must be 8-128 characters long.";
+                    break;
+            }
         }
-    });
-}
-
-function signup() {
-    signupEmail.value = signupEmail.value.trim();
-    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
-    if(signupEmail.value === "" || !emailRegex.test(signupEmail.value)) {
-        signupEmailError.innerHTML = "Please enter a valid email address.";
-        return;
-    }
-    const ubsRegex = /^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$/;
-    if(!ubsRegex.test(signupEmail.value)) {
-        signupEmailError.innerHTML = "Please enter a valid UBS email address.";
-        return;
-    }
-    signupEmailError.innerHTML = "";
-
-    signupUsername.value = signupUsername.value.trim();
-    if(signupUsername.value.length < 3) {
-        signupUsernameError.innerHTML = "Please enter at least 3 characters.";
-        return;
-    }
-    signupUsernameError.innerHTML = "";
-
-    signupPassword.value = signupPassword.value.trim();
-    if(signupPassword.value.length < 8) {
-        signupPasswordError.innerHTML = "Please enter at least 8 characters.";
-        return;
-    }
-    signupPasswordError.innerHTML = "";
-
-    fetch('/api/signup', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            email: signupEmail.value,
-            username: signupUsername.value,
-            password: signupPassword.value
-        })
-    }).then(async response => {
-        if (response.ok) {
-            openLogin();
-            loginUsernameError.innerHTML = "Verification email sent.";
-            loginPasswordError.innerHTML = "Please check your inbox.";
-        } else {
-            signupEmailError.innerHTML = "Something went wrong.";
-            signupUsernameError.innerHTML = "Something went wrong.";
-            signupPasswordError.innerHTML = "Something went wrong.";
-            console.error("Error:", await response.text());
-        }
-    }).catch(error => {
+    } catch (error) {
         console.error("Error:", error);
-    });
+    }
 }
 
 async function getProfile() {
@@ -244,34 +155,138 @@ async function getProfile() {
         return;
     }
 
-    let profileResponse = await fetch('/api/profile/me', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-        }
-    });
-    let countResponse = await fetch('/api/users/count', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-        }
-    });
+    try {
+        let profileResponse = await fetch('/api/profile/me', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            }
+        });
 
-    if(profileResponse.ok && countResponse.ok) {
-        let profile = await profileResponse.json();
-        let count = await countResponse.json();
-        profilePlacedPixels.value = profile.score;
-        profileRank.value = `${profile.rank} / ${count}`;
-        profileUsername.value = profile.username;
-        profilePassword.value = "";
-        profileCurrentPassword.value = "";
-        openProfile();
-    } else {
-        localStorage.removeItem('token');
-        openLogin();
-        console.error("Error:", await profileResponse.text());
+        let countResponse = await fetch('/api/users/count', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            }
+        });
+
+        if(profileResponse.ok && countResponse.ok) {
+            let profile = await profileResponse.json();
+            let count = await countResponse.json();
+            profilePlacedPixels.value = profile.score;
+            profileRank.value = `${profile.rank} / ${count}`;
+            profileUsername.value = profile.username;
+            profilePassword.value = "";
+            profileCurrentPassword.value = "";
+            openProfile();
+        } else {
+            localStorage.removeItem('token');
+            openLogin();
+            console.error("Error:", await profileResponse.text());
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+
+async function login() {
+    if(loginUsername.value === "") {
+        loginUsernameError.textContent = "Please enter an username.";
+        return;
+    }
+
+    loginUsernameError.textContent = "";
+
+    if(loginPassword.value === "") {
+        loginPasswordError.textContent = "Please enter a password.";
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                username: loginUsername.value,
+                password: loginPassword.value
+            })
+        });
+
+        if (response.ok) {
+            let token = await response.text();
+            localStorage.setItem('token', token);
+            await getProfile();
+            openProfile();
+            toggleMenu();
+            switchState("palette");
+        } else {
+            loginUsernameError.textContent = "Invalid username or password.";
+            loginPasswordError.textContent = "Invalid username or password.";
+        }
+    } catch (error) {
+        console.error("Error:", error);
+    }
+}
+
+async function signup() {
+    signupEmail.value = signupEmail.value.trim();
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+
+    if(signupEmail.value === "" || !emailRegex.test(signupEmail.value)) {
+        signupEmailError.textContent = "Please enter a valid email address.";
+        return;
+    }
+
+    const ubsRegex = /^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$/;
+    if(!ubsRegex.test(signupEmail.value)) {
+        signupEmailError.textContent = "Please enter a valid UBS email address.";
+        return;
+    }
+    signupEmailError.textContent = "";
+
+    signupUsername.value = signupUsername.value.trim();
+    if(signupUsername.value.length < 3) {
+        signupUsernameError.textContent = "Please enter at least 3 characters.";
+        return;
+    }
+    signupUsernameError.textContent = "";
+
+    signupPassword.value = signupPassword.value.trim();
+    if(signupPassword.value.length < 8) {
+        signupPasswordError.textContent = "Please enter at least 8 characters.";
+        return;
+    }
+    signupPasswordError.textContent = "";
+
+    try {
+        const response = await fetch('/api/signup', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                email: signupEmail.value,
+                username: signupUsername.value,
+                password: signupPassword.value
+            })
+        });
+
+        if (response.ok) {
+            openLogin();
+            loginUsernameError.textContent = "Verification email sent.";
+            loginPasswordError.textContent = "Please check your inbox.";
+        } else {
+            signupEmailError.textContent = "Something went wrong.";
+            signupUsernameError.textContent = "Something went wrong.";
+            signupPasswordError.textContent = "Something went wrong.";
+            console.error("Error:", await response.text());
+        }
+    } catch (error) {
+        console.error("Error:", error);
     }
 }
 

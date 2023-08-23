@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::env;
+use std::{env, fs};
 use std::sync::RwLock;
 
 use actix::Addr;
@@ -12,6 +12,7 @@ use crate::database;
 use crate::database::DatabaseUpdate;
 use crate::models::user::User;
 use crate::websocket::{MessageUpdate, PlaceWebSocketConnection};
+use crate::models::utils::{ColorFile, hex_to_rgb};
 
 pub struct AppState {
     width: usize,
@@ -78,40 +79,14 @@ impl AppState {
             .parse::<u16>()
             .expect("UPDATE_COOLDOWN_SEC should be a valid u16");
 
-        let palette: Vec<(u8, u8, u8)> = Vec::from([
-            (109, 0, 26),
-            (190, 0, 57),
-            (255, 69, 0),
-            (255, 168, 0),
-            (255, 214, 53),
-            (255, 248, 184),
-            (0, 163, 104),
-            (0, 204, 120),
-            (126, 237, 86),
-            (0, 117, 111),
-            (0, 158, 170),
-            (0, 204, 192),
-            (36, 80, 164),
-            (54, 144, 234),
-            (81, 233, 244),
-            (73, 58, 193),
-            (106, 92, 255),
-            (148, 179, 255),
-            (129, 30, 159),
-            (180, 74, 192),
-            (228, 171, 255),
-            (222, 16, 127),
-            (255, 56, 129),
-            (255, 153, 170),
-            (109, 72, 47),
-            (156, 105, 38),
-            (255, 180, 112),
-            (0, 0, 0),
-            (81, 82, 82),
-            (137, 141, 144),
-            (212, 215, 217),
-            (255, 255, 255),
-        ]);
+        let colors_str = fs::read_to_string("public/misc/colors.json")
+            .expect("Error reading colors file");
+        let color_file = serde_json::from_str::<ColorFile>(&colors_str)
+            .expect("Error parsing colors file");
+        let palette: Vec<(u8, u8, u8)> = color_file.colors
+            .iter()
+            .map(|color| hex_to_rgb(color))
+            .collect();
 
         Self {
             width,

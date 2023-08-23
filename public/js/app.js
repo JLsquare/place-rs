@@ -2,8 +2,8 @@ let cursor = document.getElementById("cursor");
 let canvas = document.getElementById("canvas");
 let selectedPixel = document.getElementById("selectedPixel");
 let drawButton = document.getElementById("drawButton");
-let ctx = canvas.getContext('2d');
 
+let ctx = canvas.getContext('2d');
 ctx.imageSmoothingEnabled = false;
 ctx.mozImageSmoothingEnabled = false;
 ctx.webkitImageSmoothingEnabled = false;
@@ -11,23 +11,29 @@ ctx.msImageSmoothingEnabled = false;
 
 const maxZoom = 128;
 const minZoom = 0.75;
-let currentZoom = 1;
 
+let currentZoom = 1;
 let isDragging = false;
 let recentlyDragged = false;
 let lastPosition = { x: 0, y: 0 };
 let offset = { x: 0, y: 0 };
 let pixel = { x: 0, y: 0 };
-
 let colors;
 let selectedColor = -1;
-
 let socket;
 let localCooldown = 0;
 
+async function initApp() {
+    await initPalette();
+    getCooldown();
+    await getGrid();
+    initSocket();
+    cursorPosition({clientX: 0, clientY: 0});
+    selectedPixelPosition();
+}
+
 function initSocket() {
     let wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-
     socket = new WebSocket(`${wsProtocol}://${window.location.host}/api/ws`);
 
     socket.onmessage = function(event) {
@@ -41,32 +47,36 @@ function initSocket() {
     }
 }
 
-function sendPixel() {
-    if(selectedColor === -1) return;
+async function sendPixel() {
+    if (selectedColor === -1) return;
 
     let token = localStorage.getItem("token");
 
-    fetch('/api/draw', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token
-        },
-        body: JSON.stringify({
-            x: oldPixel.x,
-            y: oldPixel.y,
-            user: 0,
-            color: selectedColor
-        })
-    }).then(async response => {
-        if(response.ok){
-            localCooldown = await response.json()
+    try {
+        const response = await fetch('/api/draw', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token
+            },
+            body: JSON.stringify({
+                x: oldPixel.x,
+                y: oldPixel.y,
+                user: 0,
+                color: selectedColor
+            })
+        });
+
+        if (response.ok) {
+            localCooldown = await response.json();
             deselectColor();
             updateCooldownDisplay();
         } else {
-            console.log(await response.text());
+            console.error(await response.text());
         }
-    });
+    } catch (error) {
+        console.error("Error:", error);
+    }
 }
 
 async function getGrid() {
@@ -87,17 +97,12 @@ async function getGrid() {
 
         const img = new Image();
         img.src = imageUrl;
-        img.onload = function () {
+        img.onload = () => {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
             URL.revokeObjectURL(img.src);
         };
 
-    } catch (error) {
-        console.error('Error loading grid:', error);
-    }
-
-    try {
         const updatesResponse = await fetch('/api/updates');
         const updates = await updatesResponse.json();
         const ctx = canvas.getContext('2d');
@@ -105,9 +110,8 @@ async function getGrid() {
             ctx.fillStyle = colors[update.color];
             ctx.fillRect(update.x, update.y, 1, 1);
         });
-
     } catch (error) {
-        console.error('Error loading updates:', error);
+        console.error('Error loading grid:', error);
     }
 }
 
@@ -129,8 +133,8 @@ function selectedPixelPosition(){
 
     selectedPixel.style.left = `${canvasBounds.left + (oldPixel.x + 1) * currentZoom - currentZoom}px`;
     selectedPixel.style.top = `${canvasBounds.top + (oldPixel.y + 1) * currentZoom - currentZoom}px`;
-    selectedPixel.style.width = `${currentZoom}px`;
-    selectedPixel.style.height = `${currentZoom}px`;
+    selectedPixel.style.width = `${currentZoom * 1.01}px`;
+    selectedPixel.style.height = `${currentZoom * 1.01}px`;
 }
 
 canvas.addEventListener('wheel', (event) => {
@@ -203,7 +207,4 @@ canvas.addEventListener('click', async () => {
 
 drawButton.addEventListener('click', sendPixel);
 
-initPalette();
-getCooldown();
-getGrid();
-initSocket();
+initApp();

@@ -1,38 +1,43 @@
 let leaderboard = document.getElementById('leaderboardList');
 let reloadButton = document.getElementById('reloadButton');
 
-reloadButton.addEventListener('click', getLeaderboard);
-
-function getLeaderboard() {
-    reloadButton.classList.toggle('rotate')
+async function getLeaderboard() {
+    reloadButton.classList.toggle('rotate');
     reloadButton.onanimationend = () => {
-        reloadButton.classList.toggle('rotate')
+        reloadButton.classList.toggle('rotate');
     }
 
-    fetch('/api/leaderboard')
-        .then((response) => {
-            return response.json();
-        })
-        .then((data) => {
-            leaderboard.innerHTML = '';
-            data.forEach(user => {
-                let userElement = document.createElement('div');
-                userElement.className = 'leaderboard-user';
+    try {
+        const response = await fetch('/api/leaderboard');
+        if (!response.ok) {
+            console.error(`Failed to fetch leaderboard: ${await response.text()}`);
+        }
+        const data = await response.json();
 
-                let userName = document.createElement('p');
-                userName.className = 'leaderboard-name';
-                userName.innerHTML = `${user.rank}. ${user.username}`;
+        leaderboard.innerHTML = '';
+        data.forEach(user => {
+            let userElement = document.createElement('div');
+            userElement.className = 'leaderboard-user';
 
-                let userPixels = document.createElement('p');
-                userPixels.className = 'leaderboard-pixels';
-                userPixels.innerHTML = user.score;
+            let userName = document.createElement('p');
+            userName.className = 'leaderboard-name';
+            userName.textContent = `${user.rank}. ${user.username}`;
 
-                userElement.appendChild(userName);
-                userElement.appendChild(userPixels);
+            let userPixels = document.createElement('p');
+            userPixels.className = 'leaderboard-pixels';
+            userPixels.textContent = user.score;
 
-                leaderboard.appendChild(userElement);
-            });
-        })
+            userElement.appendChild(userName);
+            userElement.appendChild(userPixels);
+
+            leaderboard.appendChild(userElement);
+        });
+
+    } catch (error) {
+        console.error("Error fetching leaderboard:", error);
+    }
 }
+
+reloadButton.addEventListener('click', getLeaderboard);
 
 getLeaderboard();

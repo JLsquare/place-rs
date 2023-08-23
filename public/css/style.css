@@ -1,3 +1,4 @@
+/* === GLOBAL STYLES === */
 html, body {
     height: 100%;
     width: 100%;
@@ -11,16 +12,18 @@ html, body {
     font-family: 'Visitor', sans-serif;
 }
 
-.canvas-wrapper {
-    text-align: center;
+p {
+    margin: 0;
+    padding: 0;
+    font-size: 24px;
 }
 
-canvas {
-    transform-origin: 0 0;
-    outline: 1px solid black;
-    position: relative;
+@font-face {
+    font-family: 'Visitor';
+    src: url('../misc/visitor.ttf');
 }
 
+/* === CONTAINERS === */
 .container{
     display: flex;
     flex-direction: column;
@@ -29,48 +32,52 @@ canvas {
     width: 100%;
 }
 
-.toolbar {
-    position: absolute;
-    bottom: 16px;
-    z-index: 10;
-}
-
-.leaderboard {
-    position: absolute;
-    right: 16px;
-    z-index: 10;
-    width: 256px;
-    padding: 8px;
+.canvas-wrapper {
     text-align: center;
 }
 
-.color-picker {
-    padding: 6px 6px;
-    display: grid;
-    grid-template-rows: repeat(2, 1fr);
-    grid-auto-flow: column;
-    gap: 6px;
+.toolbar, .leaderboard, .menu {
+    position: absolute;
+    z-index: 10;
+    padding: 8px;
 }
 
-.color-block {
-    width: 32px;
+.toolbar {
+    bottom: 16px;
+}
+
+.cooldown {
+    line-height: 32px;
     height: 32px;
-    border: 1px solid black;
-    margin: 1px;
-    cursor: pointer;
+    text-align: center;
+    font-size: 24px;
 }
 
-.color-block:hover {
-    border: 2px solid black;
-    margin: 0;
+.tool {
+    width: 192px;
 }
 
-.selected-color-block {
-    border: 2px solid black;
-    margin: 0;
+.leaderboard {
+    right: 16px;
+    width: 256px;
+    text-align: center;
 }
 
+.menu {
+    padding: 24px;
+    width: 324px;
+}
+
+/* === CANVAS === */
+canvas {
+    transform-origin: 0 0;
+    outline: 1px solid black;
+    position: relative;
+}
+
+/* === BUTTON STYLES === */
 button {
+    position: relative;
     padding: 6px 8px;
     cursor: pointer;
     transition: background-color 0.3s;
@@ -80,26 +87,8 @@ button {
     margin: 8px;
 }
 
-.cooldown-btn {
-    background-color: lightgray;
-    cursor: default;
-}
-
 button:hover {
     background-color: lightgray;
-}
-
-.selected-pixel {
-    opacity: 1;
-    position: absolute;
-    width: 32px;
-    height: 32px;
-    pointer-events: none;
-    margin: 0;
-}
-
-.cursor {
-    opacity: 0.5;
 }
 
 .menu-btn {
@@ -112,24 +101,64 @@ button:hover {
     left: 16px;
 }
 
-.menu-img {
-    width: 100%;
-    height: 100%;
-}
-
-.menu {
-    z-index: 10;
-    padding: 24px;
-    position: absolute;
-    width: 324px
-}
-
-p {
-    margin: 0;
+.reload {
+    width: 34px;
+    height: 34px;
     padding: 0;
-    font-size: 24px;
+    background: transparent;
+    border: 0;
+    margin: 0;
 }
 
+.reload:hover {
+    background: transparent;
+}
+
+.draw-btn {
+    width: 128px;
+    height: 48px;
+    font-size: 28px;
+    margin-left: 32px;
+}
+
+.draw-btn:hover {
+    animation: swing-lite 1s infinite;
+    animation-delay: -0.25s;
+}
+
+.draw-btn::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    bottom: -10px;
+    left: -5px;
+    right: -5px;
+    z-index: -1;
+}
+
+/* === COLOR PICKER === */
+.color-picker {
+    padding: 6px 6px;
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    grid-auto-flow: column;
+    gap: 6px;
+}
+
+.color-block, .selected-color-block {
+    width: 32px;
+    height: 32px;
+    border: 1px solid black;
+    margin: 1px;
+    cursor: pointer;
+}
+
+.color-block:hover, .selected-color-block {
+    border: 2px solid black;
+    margin: 0;
+}
+
+/* === INPUTS === */
 input {
     padding: 4px;
     border: 1px solid black;
@@ -148,103 +177,50 @@ input:focus {
     outline: none;
 }
 
-.leaderboard-title {
-    font-size: 35px;
+/* === MISCELLANEOUS STYLES === */
+.pixel-img {
+    image-rendering: pixelated;
 }
 
-.menu-title {
-    text-align: center;
+.selected-pixel {
+    opacity: 1;
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    pointer-events: none;
+    margin: 0;
+}
+
+.cursor {
+    opacity: 0.5;
+}
+
+.menu-img {
+    width: 100%;
+    height: 100%;
+}
+
+.title {
     font-size: 35px;
+    margin: auto;
+}
+
+.hidden {
+    display: none;
+}
+
+/* === FLEX CONTAINERS === */
+.flex-col, .flex-row {
+    display: flex;
 }
 
 .flex-col {
-    display: flex;
     flex-direction: column;
 }
 
 .flex-row {
-    display: flex;
     flex-direction: row;
     align-items: center;
-}
-
-.login-btn {
-    width: 100%;
-    margin: 16px auto auto;
-}
-
-.p-btn {
-    color: darkblue;
-    cursor: pointer;
-    text-decoration: underline;
-}
-
-.bottom-txt {
-    margin-top: 16px;
-}
-
-.p-error {
-    color: red;
-    height: 16px;
-    font-size: 16px;
-    margin-top: 2px;
-}
-
-.leaderboard-user {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    margin-bottom: 4px;
-}
-
-.cooldown {
-    padding: 6px 8px;
-    transition: background-color 0.3s;
-    width: 128px;
-    font-size: 24px;
-    margin: 8px;
-    text-align: center;
-}
-
-.flex-between {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-}
-
-.leaderboard-name {
-    font-size: 24px;
-}
-
-.leaderboard-pixels {
-    font-size: 24px;
-}
-
-.not-connected {
-    padding: 6px 8px;
-    transition: background-color 0.3s;
-    width: 192px;
-    font-size: 24px;
-    margin: 8px;
-    text-align: center;
-}
-
-.reload {
-    width: 34px;
-    height: 34px;
-    padding: 0;
-    background: transparent;
-    border: 0;
-    margin: 0;
-}
-
-.reload:hover {
-    background: transparent;
-}
-
-.rotate {
-    animation: rotate360 1s;
 }
 
 .title-top {
@@ -257,6 +233,41 @@ input:focus {
     margin-bottom: 16px;
 }
 
+.flex-between, .leaderboard-user {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+/* === TEXT STYLES === */
+.login-btn {
+    width: 100%;
+    margin: 16px auto auto;
+}
+
+.p-btn {
+    color: darkblue;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.bottom-txt, .p-error {
+    margin-top: 16px;
+}
+
+.p-error {
+    color: red;
+    height: 16px;
+    font-size: 16px;
+    margin-top: 2px;
+}
+
+.leaderboard-name, .leaderboard-pixels {
+    font-size: 24px;
+}
+
+/* === EFFECTS & ANIMATIONS === */
 .border-shadow {
     background-color: white;
     border: 2px solid black;
@@ -273,29 +284,17 @@ input:focus {
     top: 16px;
 }
 
-.hidden {
-    display: none;
-}
-
-.draw-btn {
-    width: 128px;
-    height: 48px;
-    font-size: 28px;
-    margin-left: 32px;
-}
-
-.pixel-img {
-    image-rendering: pixelated;
-}
-
 .swing-animation {
     animation: swing 1s infinite;
+}
+
+.swing-one {
+    animation: swing-one 0.5s;
     transform-origin: center center;
 }
 
-@font-face {
-    font-family: 'Visitor';
-    src: url('../font/visitor.ttf');
+.rotate, button.rotate:hover {
+    animation: rotate360 1s;
 }
 
 @keyframes rotate360 {
@@ -308,13 +307,21 @@ input:focus {
 }
 
 @keyframes swing {
-    0% {
-        transform: rotate(-10deg);
-    }
-    50% {
-        transform: rotate(10deg);
-    }
-    100% {
-        transform: rotate(-10deg);
-    }
+    0% { transform: rotate(-10deg); }
+    50% { transform: rotate(10deg); }
+    100% { transform: rotate(-10deg); }
+}
+
+@keyframes swing-lite {
+    0% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+    100% { transform: rotate(-5deg); }
+}
+
+@keyframes swing-one {
+    0% { transform: rotate(0); }
+    25% { transform: rotate(-2.5deg); }
+    50% { transform: rotate(2.5deg); }
+    75% { transform: rotate(-2.5deg); }
+    100% { transform: rotate(0); }
 }
