@@ -121,7 +121,7 @@ button:hover {
     margin-left: 32px;
 }
 
-.draw-btn:hover {
+.draw-btn:hover, .reload:hover {
     animation: swing-lite 1s infinite;
     animation-delay: -0.25s;
 }
