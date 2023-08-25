@@ -151,6 +151,17 @@ async fn verify(
     Ok(HttpResponse::Ok().body("Account verified"))
 }
 
+#[get("/api/profile/me")]
+async fn get_profile(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())?;
+    let user = appstate.get_user(user_id).ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
+
+    Ok(HttpResponse::Ok().json(user))
+}
+
 #[post("/api/profile/edit")]
 async fn edit_profile(
     appstate: web::Data<RwLock<AppState>>,

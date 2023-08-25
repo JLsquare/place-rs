@@ -201,14 +201,13 @@ impl Database {
         let connection = self.pool.get()?;
 
         let mut statement = connection.prepare(
-            "SELECT user_id, username, COUNT(*) as pixel_count, verified
+            "SELECT users.user_id, username, COALESCE(COUNT(pixels.user), 0) as pixel_count, verified
             FROM users
-            JOIN pixels
+            LEFT JOIN pixels
             ON users.user_id = pixels.user
             GROUP BY users.user_id",
         )?;
         let mut rows = statement.query([])?;
-
         let mut users = HashMap::new();
         while let Some(row) = rows.next()? {
             let id: i64 = row.get(0)?;

@@ -160,7 +160,7 @@ async function getProfile() {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': token
+                'Authorization': `Bearer ${token}`
             }
         });
 
@@ -168,7 +168,7 @@ async function getProfile() {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': token
+                'Authorization': `Bearer ${token}`
             }
         });
 

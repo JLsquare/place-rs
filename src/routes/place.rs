@@ -103,17 +103,6 @@ async fn get_users_connected(appstate: web::Data<RwLock<AppState>>) -> Result<Ht
     Ok(HttpResponse::Ok().json(appstate.get_users_connected()))
 }
 
-#[get("/api/profile/me")]
-async fn get_profile(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> Result<HttpResponse, Error> {
-    let appstate = appstate.read()
-        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
-
-    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())?;
-    let user = appstate.get_user(user_id).ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
-
-    Ok(HttpResponse::Ok().json(user))
-}
-
 #[get("/api/cooldown")]
 async fn get_cooldown(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> Result<HttpResponse, Error> {
     let appstate = appstate.read()

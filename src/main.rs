@@ -15,10 +15,10 @@ use dotenv::dotenv;
 use crate::database::Database;
 use crate::models::appstate::AppState;
 use crate::routes::place::{
-    draw, get_cooldown, get_leaderboard, get_png, get_profile, get_size, get_updates, get_username,
+    draw, get_cooldown, get_leaderboard, get_png, get_size, get_updates, get_username,
     get_users_connected, get_users_count,
 };
-use crate::routes::user::{edit_profile, login, signup, verify};
+use crate::routes::user::{edit_profile, get_profile, login, signup, verify};
 use crate::websocket::ws_index;
 
 #[actix_web::main]
