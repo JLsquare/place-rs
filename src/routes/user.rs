@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Error, error};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use rand::Rng;
@@ -36,37 +36,29 @@ async fn login(
     appstate: web::Data<RwLock<AppState>>,
     database: web::Data<database::Database>,
     info: web::Json<LoginInfo>,
-) -> impl Responder {
-    let user_id = match database.login(&info.username, &info.password) {
-        Ok(Some(id)) => id,
-        Ok(None) => return HttpResponse::Unauthorized().body("invalid credentials"),
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
-        }
-    };
+) -> Result<HttpResponse, Error> {
+    let user_id = database
+        .login(&info.username, &info.password)
+        .map_err(|_| error::ErrorInternalServerError("database error"))?
+        .ok_or_else(|| error::ErrorUnauthorized("invalid credentials"))?;
 
     let claims = Claims {
         id: user_id,
         exp: (Utc::now() + Duration::days(7)).timestamp() as usize,
     };
 
-    let appstate = match appstate.read() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+    let appstate = appstate
+        .read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
 
-    match encode(
+    let token = encode(
         &Header::new(Algorithm::HS512),
         &claims,
         &EncodingKey::from_secret(appstate.jwt_secret().as_bytes()),
-    ) {
-        Ok(token) => HttpResponse::Ok().body(token),
-        Err(err) => {
-            HttpResponse::InternalServerError().body(format!("token encoding error : {}", err))
-        }
-    }
+    )
+        .map_err(|_| error::ErrorInternalServerError("token encoding error"))?;
+
+    Ok(HttpResponse::Ok().body(token))
 }
 
 #[post("/api/signup")]
@@ -74,28 +66,47 @@ async fn signup(
     appstate: web::Data<RwLock<AppState>>,
     database: web::Data<database::Database>,
     info: web::Json<SignupInfo>,
-) -> impl Responder {
-    let mut appstate = match appstate.write() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+) -> Result<HttpResponse, Error> {
+    let mut appstate = appstate
+        .write()
+        .map_err(|_| error::ErrorInternalServerError("appstate write error"))?;
 
     if !appstate.email_regex().is_match(&info.email) {
-        return HttpResponse::BadRequest().body("Invalid email format");
+        return Err(error::ErrorBadRequest("Invalid email format"));
     }
 
     if !appstate.ubs_regex().is_match(&info.email) {
-        return HttpResponse::BadRequest().body("Invalid email domain");
+        return Err(error::ErrorBadRequest("Not a UBS email"));
+    }
+
+    let ubs_id = appstate
+        .extract_id_regex()
+        .captures(&info.email)
+        .and_then(|captures| captures.get(1))
+        .and_then(|capture| {
+            let id_str = &capture.as_str()[1..];
+            id_str.parse::<u32>().ok()
+        })
+        .ok_or_else(|| error::ErrorBadRequest("Invalid email format"))?;
+
+    let is_id_registered = database
+        .check_ubs_id(ubs_id)
+        .map_err(|_| error::ErrorInternalServerError("database error"))?;
+
+    if is_id_registered {
+        return Err(error::ErrorBadRequest("UBS id already registered"));
     }
 
     if info.username.len() < 3 || info.username.len() > 15 {
-        return HttpResponse::BadRequest().body("username must be between 3 and 15 characters");
+        return Err(error::ErrorBadRequest("username must be between 3 and 15 characters"));
     }
 
     if info.password.len() < 8 || info.password.len() > 128 {
-        return HttpResponse::BadRequest().body("password must be between 8 and 128 characters");
+        return Err(error::ErrorBadRequest("password must be between 8 and 128 characters"));
+    }
+
+    if appstate.is_username_taken(&info.username) {
+        return Err(error::ErrorConflict("username taken"));
     }
 
     let verification_code = rand::thread_rng()
@@ -104,24 +115,17 @@ async fn signup(
         .map(char::from)
         .collect::<String>();
 
-    let user_id = match database.signup(
-        &info.username,
-        &info.password,
-        &info.email,
-        &verification_code,
-    ) {
-        Ok(id) => id,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
-        }
-    };
+    let user_id = database
+        .signup(&info.username, &info.password, &info.email, &verification_code, ubs_id)
+        .map_err(|_| error::ErrorInternalServerError("database error"))?;
 
     let user = User::new(info.username.clone(), 0, false);
 
     appstate.insert_user(user_id, user);
-    appstate.send_verification_mail(&info.email, &verification_code);
+    appstate.send_verification_mail(&info.email, &verification_code)
+        .map_err(|_| error::ErrorInternalServerError("email error"))?;
 
-    HttpResponse::Ok().body("ok")
+    Ok(HttpResponse::Ok().body("ok"))
 }
 
 #[get("/api/verify/{token}")]
@@ -129,27 +133,22 @@ async fn verify(
     appstate: web::Data<RwLock<AppState>>,
     database: web::Data<database::Database>,
     token: web::Path<String>,
-) -> impl Responder {
-    let user_id = match database.verify(&token) {
-        Ok(id) => id,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
-        }
-    };
+) -> Result<HttpResponse, Error> {
+    let user_id = database
+        .verify(&token)
+        .map_err(|_| error::ErrorInternalServerError("database error"))?;
 
-    let mut appstate = match appstate.write() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+    let mut appstate = appstate
+        .write()
+        .map_err(|_| error::ErrorInternalServerError("appstate write error"))?;
 
-    match appstate.get_user_mut(user_id) {
-        Some(user) => user.verified = true,
-        None => return HttpResponse::InternalServerError().body("appstate error : no such user"),
-    };
+    let user = appstate
+        .get_user_mut(user_id)
+        .ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
 
-    HttpResponse::Ok().body("Account verified")
+    user.verified = true;
+
+    Ok(HttpResponse::Ok().body("Account verified"))
 }
 
 #[post("/api/profile/edit")]
@@ -158,46 +157,38 @@ async fn edit_profile(
     database: web::Data<database::Database>,
     info: web::Json<ProfileEdit>,
     req: HttpRequest,
-) -> impl Responder {
-    let mut appstate = match appstate.write() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+) -> Result<HttpResponse, Error> {
+    let mut appstate = appstate
+        .write()
+        .map_err(|_| error::ErrorInternalServerError("appstate write error"))?;
 
-    let user_id = match token_to_id(req, appstate.jwt_secret().as_bytes()) {
-        Ok(username) => username,
-        Err(response) => return response,
-    };
+    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())?;
 
     if info.username.len() < 3 || info.username.len() > 15 {
-        return HttpResponse::BadRequest().body("username must be between 3 and 15 characters");
+        return Err(error::ErrorBadRequest("username must be between 3 and 15 characters"));
     }
 
     if appstate.is_username_taken(&info.username) {
-        return HttpResponse::BadRequest().body("username taken");
+        return Err(error::ErrorBadRequest("username taken"));
     }
 
-    match database.check_password(user_id, &info.current_password) {
-        Ok(true) => (),
-        Ok(false) => return HttpResponse::Unauthorized().body("invalid credentials"),
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("database error : {}", err))
-        }
-    };
+    let is_valid_password = database
+        .check_password(user_id, &info.current_password)
+        .map_err(|_| error::ErrorInternalServerError("database error"))?;
 
-    let user = match appstate.get_user_mut(user_id) {
-        Some(user) => user,
-        None => return HttpResponse::BadRequest().body("invalid user"),
-    };
+    if !is_valid_password {
+        return Err(error::ErrorBadRequest("invalid credentials"));
+    }
+
+    let user = appstate
+        .get_user_mut(user_id)
+        .ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
 
     user.username = info.username.clone();
 
-    match database.edit_profile(user_id, &info.into_inner()) {
-        Ok(_) => (),
-        Err(err) => return HttpResponse::InternalServerError().body(format!("error: {}", err)),
-    };
+    database
+        .edit_profile(user_id, &info.into_inner())
+        .map_err(|_| error::ErrorBadRequest("database error"))?;
 
-    HttpResponse::Ok().body("ok")
+    Ok(HttpResponse::Ok().body("ok"))
 }

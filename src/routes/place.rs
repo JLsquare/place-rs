@@ -1,6 +1,6 @@
 use std::sync::RwLock;
 
-use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, post, web, HttpRequest, HttpResponse, Error, error};
 use chrono::Utc;
 use serde_derive::Deserialize;
 
@@ -15,34 +15,22 @@ struct DrawInfo {
 }
 
 #[get("/api/png")]
-async fn get_png(appstate: web::Data<RwLock<AppState>>) -> impl Responder {
-    let mut appstate = match appstate.write() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+async fn get_png(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let mut appstate = appstate.write()
+        .map_err(|_| error::ErrorInternalServerError("appstate write error"))?;
 
-    match appstate.try_update() {
-        Ok(_) => (),
-        Err(err) => eprintln!("appstate error: {}", err),
-    }
+    appstate.try_update()
+        .map_err(|err| eprintln!("appstate error: {}", err)).ok();
 
-    HttpResponse::Ok()
-        .content_type("image/png")
-        .body(appstate.get_png())
+    Ok(HttpResponse::Ok().content_type("image/png").body(appstate.get_png()))
 }
 
 #[get("/api/updates")]
-async fn get_updates(appstate: web::Data<RwLock<AppState>>) -> impl Responder {
-    let updates = match appstate.read() {
-        Ok(appstate) => appstate.get_message_updates(),
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+async fn get_updates(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
 
-    HttpResponse::Ok().json(updates)
+    Ok(HttpResponse::Ok().json(appstate.get_message_updates()))
 }
 
 #[post("/api/draw")]
@@ -50,139 +38,101 @@ async fn draw(
     appstate: web::Data<RwLock<AppState>>,
     info: web::Json<DrawInfo>,
     req: HttpRequest,
-) -> impl Responder {
-    let mut appstate = match appstate.write() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+) -> Result<HttpResponse, Error> {
+    let mut appstate = appstate.write()
+        .map_err(|err| error::ErrorInternalServerError(format!("appstate error: {}", err)))?;
 
-    let user_id = match token_to_id(req, appstate.jwt_secret().as_bytes()) {
-        Ok(username) => username,
-        Err(response) => return response,
-    };
+    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())
+        .map_err(|_| error::ErrorBadRequest("Failed to decode token"))?;
 
-    let user = match appstate.get_user(user_id) {
-        Some(user) => user,
-        None => return HttpResponse::BadRequest().body("invalid user"),
-    };
+    let user = appstate.get_user(user_id)
+        .ok_or(error::ErrorBadRequest("invalid user"))?;
 
     let time = Utc::now().timestamp();
 
     if time - user.cooldown < appstate.cooldown() as i64 {
-        return HttpResponse::BadRequest().body("cooldown");
+        return Err(error::ErrorBadRequest("cooldown"));
     }
 
     if !user.verified {
-        return HttpResponse::BadRequest().body("unverified");
+        return Err(error::ErrorBadRequest("unverified"));
     }
 
-    appstate.draw(info.x as usize, info.y as usize, user_id, info.color);
-    match appstate.try_update() {
-        Ok(_) => (),
-        Err(err) => eprintln!("appstate error : {}", err),
-    }
+    appstate.draw(info.x as usize, info.y as usize, user_id, info.color)
+        .map_err(|err| error::ErrorInternalServerError(format!("appstate error: {}", err)))?;
 
-    HttpResponse::Ok().json(appstate.cooldown())
+    appstate.try_update()
+        .map_err(|err| eprintln!("appstate error: {}", err)).ok();
+
+    Ok(HttpResponse::Ok().json(appstate.cooldown()))
 }
 
 #[get("/api/size")]
-async fn get_size(appstate: web::Data<RwLock<AppState>>) -> impl Responder {
-    match appstate.read() {
-        Ok(appstate) => HttpResponse::Ok().json(appstate.get_size()),
-        Err(err) => HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
-    }
+async fn get_size(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    Ok(HttpResponse::Ok().json(appstate.get_size()))
 }
 
 #[get("/api/username/{x}/{y}")]
 async fn get_username(
     appstate: web::Data<RwLock<AppState>>,
     path: web::Path<(u32, u32)>,
-) -> impl Responder {
+) -> Result<HttpResponse, Error> {
     let (x, y) = path.into_inner();
-    match appstate.read() {
-        Ok(appstate) => {
-            HttpResponse::Ok().body(appstate.get_username_from_pixel(x as usize, y as usize))
-        }
-        Err(err) => HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
-    }
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    Ok(HttpResponse::Ok().body(appstate.get_username_from_pixel(x as usize, y as usize)))
 }
 
 #[get("/api/users/count")]
-async fn get_users_count(appstate: web::Data<RwLock<AppState>>) -> impl Responder {
-    match appstate.read() {
-        Ok(appstate) => HttpResponse::Ok().json(appstate.user_length()),
-        Err(err) => HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
-    }
+async fn get_users_count(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    Ok(HttpResponse::Ok().json(appstate.user_length()))
 }
 
 #[get("/api/users/connected")]
-async fn get_users_connected(appstate: web::Data<RwLock<AppState>>) -> impl Responder {
-    match appstate.read() {
-        Ok(appstate) => HttpResponse::Ok().json(appstate.get_users_connected()),
-        Err(err) => HttpResponse::InternalServerError().body(format!("appstate error : {}", err)),
-    }
+async fn get_users_connected(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    Ok(HttpResponse::Ok().json(appstate.get_users_connected()))
 }
 
 #[get("/api/profile/me")]
-async fn get_profile(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> impl Responder {
-    let appstate = match appstate.read() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+async fn get_profile(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
 
-    let user_id = match token_to_id(req, appstate.jwt_secret().as_bytes()) {
-        Ok(username) => username,
-        Err(response) => return response,
-    };
+    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())?;
+    let user = appstate.get_user(user_id).ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
 
-    let user = match appstate.get_user(user_id) {
-        Some(user) => user,
-        None => return HttpResponse::BadRequest().body("invalid user"),
-    };
-
-    HttpResponse::Ok().json(user)
+    Ok(HttpResponse::Ok().json(user))
 }
 
 #[get("/api/cooldown")]
-async fn get_cooldown(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> impl Responder {
-    let appstate = match appstate.read() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+async fn get_cooldown(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
 
-    let user_id = match token_to_id(req, appstate.jwt_secret().as_bytes()) {
-        Ok(username) => username,
-        Err(response) => return response,
-    };
-
-    let user = match appstate.get_user(user_id) {
-        Some(user) => user,
-        None => return HttpResponse::BadRequest().body("invalid user"),
-    };
-
+    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())?;
+    let user = appstate.get_user(user_id).ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
     let time = Utc::now().timestamp();
-
     if time - user.cooldown > appstate.cooldown() as i64 {
-        HttpResponse::Ok().json(0)
+        Ok(HttpResponse::Ok().json(0))
     } else {
-        HttpResponse::Ok().json(appstate.cooldown() - (time - user.cooldown) as u16)
+        Ok(HttpResponse::Ok().json(appstate.cooldown() - (time - user.cooldown) as u16))
     }
 }
 
 #[get("/api/leaderboard")]
-async fn get_leaderboard(appstate: web::Data<RwLock<AppState>>) -> impl Responder {
-    let appstate = match appstate.read() {
-        Ok(appstate) => appstate,
-        Err(err) => {
-            return HttpResponse::InternalServerError().body(format!("appstate error : {}", err))
-        }
-    };
+async fn get_leaderboard(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let appstate = appstate.read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
 
-    HttpResponse::Ok().json(appstate.get_leaderboard())
+    Ok(HttpResponse::Ok().json(appstate.get_leaderboard()))
 }

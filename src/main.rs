@@ -55,7 +55,7 @@ async fn main() -> std::io::Result<()> {
     let database = Database::new().expect("Error connecting to database");
     database.create_tables().expect("Error creating tables");
 
-    let mut appstate = AppState::new(width, height);
+    let mut appstate = AppState::new(width, height).expect("Error creating appstate");
     appstate.try_update().expect("Error updating appstate");
 
     let appstate = web::Data::new(RwLock::new(appstate));

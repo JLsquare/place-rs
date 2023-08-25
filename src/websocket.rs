@@ -1,7 +1,7 @@
 use std::sync::RwLock;
 
 use actix::{Actor, ActorContext, AsyncContext, Handler, Message, StreamHandler};
-use actix_web::{get, web, HttpRequest, HttpResponse};
+use actix_web::{get, web, HttpRequest, HttpResponse, error, Error};
 use actix_web_actors::ws;
 use serde_derive::Serialize;
 
@@ -23,15 +23,13 @@ impl Actor for PlaceWebSocketConnection {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        match self.appstate.write() {
-            Ok(appstate) => {
-                appstate.add_session(ctx.address());
-            }
-            Err(err) => {
-                println!("Error writing to app state: {}", err);
-                ctx.stop();
-            }
-        }
+        self.appstate.write()
+            .map_err(|_| eprintln!("Error writing to app state"))
+            .and_then(|appstate| {
+                appstate.add_session(ctx.address())
+                    .map_err(|err| eprintln!("Error adding session: {}", err))
+            })
+            .unwrap_or_else(|_| ctx.stop());
     }
 }
 
@@ -39,15 +37,10 @@ impl Handler<MessageUpdate> for PlaceWebSocketConnection {
     type Result = ();
 
     fn handle(&mut self, msg: MessageUpdate, ctx: &mut Self::Context) {
-        let text = match serde_json::to_string(&msg) {
-            Ok(text) => text,
-            Err(_) => {
-                ctx.text("Error serializing update message");
-                return;
-            }
-        };
-
-        ctx.text(text);
+        serde_json::to_string(&msg)
+            .map_err(|_| ctx.text("Error serializing update message"))
+            .map(|text| ctx.text(text))
+            .unwrap_or(());
     }
 }
 
@@ -67,12 +60,7 @@ async fn ws_index(
     req: HttpRequest,
     stream: web::Payload,
     data: web::Data<RwLock<AppState>>,
-) -> HttpResponse {
-    match ws::start(PlaceWebSocketConnection { appstate: data }, &req, stream) {
-        Ok(response) => response,
-        Err(error) => {
-            println!("Error starting websocket: {}", error);
-            HttpResponse::InternalServerError().body("error")
-        }
-    }
+) -> Result<HttpResponse, Error> {
+    ws::start(PlaceWebSocketConnection { appstate: data }, &req, stream)
+        .map_err(|_| error::ErrorInternalServerError("websocket error"))
 }
