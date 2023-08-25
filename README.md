@@ -1,6 +1,7 @@
 # place-info
 
 A lightweight r/place clone built with Rust for my university.
+**Demo**: [https://place.jlsquare.fr/](https://place.jlsquare.fr/)
 
 ![place-info screenshot](https://i.imgur.com/w6uzWPg.png)
 
