@@ -17,8 +17,9 @@
                 <div class="color-picker border-shadow" id="colorContainer"></div>
                 <button class="border-shadow draw-btn" id="drawButton">Draw !</button>
             </div>
-            <div class="border-shadow cooldown tool" id="cooldownButton">0 seconds</div>
-            <button class="border-shadow tool" id="notConnected">Not Connected</button>
+            <div class="border-shadow tool-info tool" id="cooldownButton">0 seconds</div>
+            <button class="border-shadow tool" id="notConnected">Not connected</button>
+            <div class="border-shadow tool-info tool" id="notVerified">Email not verified</div>
         </div>
         <div class="leaderboard border-shadow">
             <div class="title-top">
@@ -95,11 +96,10 @@
                 </div>
             </div>
         </div>
+        <button class="github" id="githubButton">
+            <img src="/img/github.gif" alt="github" class="pixel-img">
+        </button>
     </div>
-    <script src="/js/pixelInfo.js"></script>
-    <script src="/js/toolbar.js"></script>
-    <script src="/js/app.js"></script>
-    <script src="/js/menu.js"></script>
-    <script src="/js/leaderboard.js"></script>
+    <script src="/js/bundle.js"></script>
 </body>
 </html>

@@ -25,7 +25,6 @@ let localCooldown = 0;
 
 async function initApp() {
     await initPalette();
-    getCooldown();
     await getGrid();
     initSocket();
     cursorPosition({clientX: 0, clientY: 0});

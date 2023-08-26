@@ -152,6 +152,7 @@ async function getProfile() {
 
     if (token === null) {
         openLogin();
+        switchState("notConnected");
         return;
     }
 
@@ -180,9 +181,18 @@ async function getProfile() {
             profileUsername.value = profile.username;
             profilePassword.value = "";
             profileCurrentPassword.value = "";
+            if(profile.verified) {
+                switchState("palette");
+                let currentTime = new Date().getTime() / 1000;
+                localCooldown = profile.cooldown - currentTime;
+                updateCooldownDisplay();
+            } else {
+                switchState("notVerified");
+            }
             openProfile();
         } else {
             localStorage.removeItem('token');
+            switchState("notConnected");
             openLogin();
             console.error("Error:", await profileResponse.text());
         }
@@ -222,7 +232,6 @@ async function login() {
             await getProfile();
             openProfile();
             toggleMenu();
-            switchState("palette");
         } else {
             loginUsernameError.textContent = "Invalid username or password.";
             loginPasswordError.textContent = "Invalid username or password.";

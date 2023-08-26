@@ -43,6 +43,8 @@ pub enum AppStateError {
     EmailSendingError,
     #[error("Error adding session")]
     SessionAddError,
+    #[error("No such user")]
+    NoSuchUserError,
 }
 
 pub struct AppState {
@@ -143,7 +145,11 @@ impl AppState {
         let index = x * self.height + y;
         self.pixels_user[index] = user_id;
         self.pixels_color[index] = color;
-        self.users.get_mut(&user_id).unwrap().score += 1;
+
+        let user = self.users.get_mut(&user_id).ok_or_else(|| AppStateError::NoSuchUserError)?;
+        user.cooldown = Utc::now().timestamp() + self.cooldown as i64;
+        user.score += 1;
+
         self.database_updates.push(DatabaseUpdate {
             x,
             y,
@@ -154,6 +160,7 @@ impl AppState {
         let message_update = MessageUpdate { x, y, color };
         self.message_updates.push(message_update);
         self.broadcast(message_update)?;
+
         Ok(())
     }
 

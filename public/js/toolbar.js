@@ -1,6 +1,7 @@
 let colorPicker = document.getElementById("colorContainer");
 let cooldownButton = document.getElementById("cooldownButton");
 let notConnected = document.getElementById("notConnected");
+let notVerified = document.getElementById("notVerified");
 
 let oldSelectedColorBlock = null;
 
@@ -49,27 +50,26 @@ async function initPalette() {
 }
 
 function switchState(state) {
+    cooldownButton.style.display = "none";
+    colorPicker.style.display = "none";
+    drawButton.style.display = "none";
+    notConnected.style.display = "none";
+    notVerified.style.display = "none";
+
     if(state === "cooldown") {
         cooldownButton.style.display = "block";
-        colorPicker.style.display = "none";
-        drawButton.style.display = "none";
-        notConnected.style.display = "none";
     } else if(state === "palette") {
-        cooldownButton.style.display = "none";
         colorPicker.style.display = "grid";
         showDrawButton();
-        notConnected.style.display = "none";
     } else if(state === "notConnected") {
-        cooldownButton.style.display = "none";
-        colorPicker.style.display = "none";
-        drawButton.style.display = "none";
         notConnected.style.display = "block";
+    } else if(state === "notVerified") {
+        notVerified.style.display = "block";
     }
 }
 
 function showDrawButton() {
     if(oldPixel && oldPixel.x !== -1 && oldPixel.y !== -1 && selectedColor !== -1 && drawButton.style.display === "none") {
-        console.log("displaying draw button");
         drawButton.style.display = "block";
         drawButton.classList.toggle("swing-one");
         drawButton.onanimationend = () => {
@@ -80,31 +80,6 @@ function showDrawButton() {
     }
 }
 
-async function getCooldown() {
-    let token = localStorage.getItem("token");
-
-    if(token === null) {
-        switchState("notConnected");
-        return;
-    }
-
-    let response = await fetch('/api/cooldown', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-        }
-    });
-
-    if(response.ok) {
-        localCooldown = await response.json();
-        updateCooldownDisplay();
-    } else {
-        switchState("notConnected");
-        console.log(await response.text());
-    }
-}
-
 function updateCooldownDisplay() {
     if (localCooldown <= 0) {
         switchState("palette");
@@ -112,7 +87,11 @@ function updateCooldownDisplay() {
     } else {
         switchState("cooldown");
     }
-    cooldownButton.textContent = `${localCooldown} seconds`;
+    cooldownButton.textContent = `${Math.ceil(localCooldown)} seconds`;
     localCooldown--;
     setTimeout(updateCooldownDisplay, 1000);
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    notConnected.addEventListener('click', toggleMenu);
+});

@@ -3,7 +3,9 @@ mod models;
 mod routes;
 mod websocket;
 
-use std::env;
+use std::{env, fs, io};
+use std::io::Write;
+use std::path::Path;
 use std::sync::RwLock;
 
 use actix_cors::Cors;
@@ -15,14 +17,16 @@ use dotenv::dotenv;
 use crate::database::Database;
 use crate::models::appstate::AppState;
 use crate::routes::place::{
-    draw, get_cooldown, get_leaderboard, get_png, get_size, get_updates, get_username,
+    draw, get_leaderboard, get_png, get_size, get_updates, get_username,
     get_users_connected, get_users_count,
 };
 use crate::routes::user::{edit_profile, get_profile, login, signup, verify};
 use crate::websocket::ws_index;
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> io::Result<()> {
+    bundle_js().expect("Error bundling js");
+
     dotenv().ok();
 
     let width: usize = env::var("WIDTH")
@@ -87,7 +91,6 @@ async fn main() -> std::io::Result<()> {
             .service(get_leaderboard)
             .service(verify)
             .service(ws_index)
-            .service(get_cooldown)
             .service(get_size)
             .service(get_profile)
             .service(edit_profile)
@@ -99,4 +102,23 @@ async fn main() -> std::io::Result<()> {
     .bind((bind_address, port))?
     .run()
     .await
+}
+
+fn bundle_js() -> io::Result<()> {
+    let input_dir = Path::new("public/js/");
+    let output_file_path = input_dir.join("bundle.js");
+
+    let mut bundle = fs::File::create(&output_file_path)?;
+
+    for entry in fs::read_dir(input_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() && path.extension().map_or(false, |e| e == "js") && path != output_file_path {
+            let content = fs::read_to_string(&path)?;
+            writeln!(bundle, "// {}\n", path.display())?;
+            writeln!(bundle, "{}\n", content)?;
+        }
+    }
+
+    Ok(())
 }

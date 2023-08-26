@@ -50,8 +50,8 @@ async fn draw(
 
     let time = Utc::now().timestamp();
 
-    if time - user.cooldown < appstate.cooldown() as i64 {
-        return Err(error::ErrorBadRequest("cooldown"));
+    if user.cooldown - time > 0 {
+        return Err(error::ErrorBadRequest(format!("cooldown not over : {}s", user.cooldown - time)));
     }
 
     if !user.verified {
@@ -101,21 +101,6 @@ async fn get_users_connected(appstate: web::Data<RwLock<AppState>>) -> Result<Ht
         .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
 
     Ok(HttpResponse::Ok().json(appstate.get_users_connected()))
-}
-
-#[get("/api/cooldown")]
-async fn get_cooldown(appstate: web::Data<RwLock<AppState>>, req: HttpRequest) -> Result<HttpResponse, Error> {
-    let appstate = appstate.read()
-        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
-
-    let user_id = token_to_id(req, appstate.jwt_secret().as_bytes())?;
-    let user = appstate.get_user(user_id).ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
-    let time = Utc::now().timestamp();
-    if time - user.cooldown > appstate.cooldown() as i64 {
-        Ok(HttpResponse::Ok().json(0))
-    } else {
-        Ok(HttpResponse::Ok().json(appstate.cooldown() - (time - user.cooldown) as u16))
-    }
 }
 
 #[get("/api/leaderboard")]
