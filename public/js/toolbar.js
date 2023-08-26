@@ -36,8 +36,8 @@ async function initPalette() {
     colors.forEach((color) => {
         const colorBlock = document.createElement('button');
         colorBlock.className = 'color-block';
-        colorBlock.name = `color: ${color}`;
         colorBlock.style.backgroundColor = color;
+        colorBlock.setAttribute('aria-label', `Select color ${color}`);
         colorBlock.addEventListener('click', () => {
             deselectColor();
             selectedColor = colors.indexOf(color);
