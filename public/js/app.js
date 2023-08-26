@@ -137,8 +137,6 @@ function selectedPixelPosition(){
 }
 
 canvas.addEventListener('wheel', (event) => {
-    event.preventDefault();
-
     let prevZoom = currentZoom;
     currentZoom = event.wheelDelta > 0 ? currentZoom * 1.1 : currentZoom / 1.1;
     currentZoom = Math.min(Math.max(currentZoom, minZoom), maxZoom);
