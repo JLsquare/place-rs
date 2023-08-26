@@ -56,6 +56,11 @@ async fn main() -> io::Result<()> {
         .parse()
         .expect("BURST_SIZE should be a valid u32");
 
+    let serve_static = env::var("SERVE_STATIC")
+        .expect("SERVE_STATIC must be set")
+        .parse()
+        .expect("SERVE_STATIC should be a valid bool");
+
     let database = Database::new().expect("Error connecting to database");
     database.create_tables().expect("Error creating tables");
 
@@ -72,7 +77,7 @@ async fn main() -> io::Result<()> {
         .expect("Error creating governor config");
 
     HttpServer::new(move || {
-        App::new()
+        let mut app = App::new()
             .wrap(
                 Cors::default()
                     .allow_any_origin()
@@ -96,8 +101,13 @@ async fn main() -> io::Result<()> {
             .service(edit_profile)
             .service(get_users_count)
             .service(get_users_connected)
-            .service(get_username)
-            .service(Files::new("/", "public").index_file("index.html"))
+            .service(get_username);
+
+        if serve_static {
+            app = app.service(Files::new("/", "public").index_file("index.html"));
+        }
+
+        app
     })
     .bind((bind_address, port))?
     .run()
