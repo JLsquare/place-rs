@@ -150,7 +150,7 @@ canvas.addEventListener('wheel', (event) => {
 
     cursorPosition(event);
     selectedPixelPosition();
-});
+}, { passive: true });
 
 canvas.addEventListener('mousedown', (event) => {
     isDragging = true;

@@ -21,6 +21,7 @@ p {
 @font-face {
     font-family: 'Visitor';
     src: url('../misc/visitor.ttf');
+    font-display: swap;
 }
 
 /* === CONTAINERS === */
