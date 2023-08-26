@@ -1,4 +1,4 @@
-# place-info
+# place-info [![Rust](https://github.com/JLsquare/place-info/actions/workflows/rust.yml/badge.svg)](https://github.com/JLsquare/place-info/actions/workflows/rust.yml)
 
 A lightweight r/place clone built with Rust for my university.
 **Demo**: [https://place.jlsquare.fr/](https://place.jlsquare.fr/)
