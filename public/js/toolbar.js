@@ -36,6 +36,7 @@ async function initPalette() {
     colors.forEach((color) => {
         const colorBlock = document.createElement('button');
         colorBlock.className = 'color-block';
+        colorBlock.name = `color: ${color}`;
         colorBlock.style.backgroundColor = color;
         colorBlock.addEventListener('click', () => {
             deselectColor();
