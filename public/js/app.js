@@ -96,22 +96,18 @@ async function getGrid() {
 
         const img = new Image();
         img.src = imageUrl;
-        img.onload = () => {
+        img.onload = async () => {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
             URL.revokeObjectURL(img.src);
+
+            const updatesResponse = await fetch('/api/updates');
+            const updates = await updatesResponse.json();
+            updates.forEach(update => {
+                ctx.fillStyle = colors[update.color];
+                ctx.fillRect(update.x, update.y, 1, 1);
+            });
         };
-
-        const updatesResponse = await fetch('/api/updates');
-        const updates = await updatesResponse.json();
-        const ctx = canvas.getContext('2d');
-        updates.forEach(update => {
-            ctx.fillStyle = colors[update.color];
-            ctx.fillRect(update.x, update.y, 1, 1);
-        });
-
-        canvas.width = sizeData[0];
-        canvas.height = sizeData[1];
     } catch (error) {
         console.error('Error loading grid:', error);
     }
