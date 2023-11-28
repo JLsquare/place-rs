@@ -32,6 +32,13 @@ let profileCurrentPasswordError = document.getElementById('profileCurrentPasswor
 let logoutButton = document.getElementById('logoutButton');
 let saveButton = document.getElementById('saveButton');
 
+async function initMenu() {
+    setupListeners();
+    toggleMenu();
+    openLogin();
+    await getProfile();
+}
+
 function setupListeners() {
     menuButton.addEventListener('click', toggleMenu);
     signupLink.addEventListener('click', openSignup);
@@ -110,7 +117,7 @@ async function saveProfile() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': token
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 username: profileUsername.value,
@@ -242,37 +249,46 @@ async function login() {
 }
 
 async function signup() {
-    signupEmail.value = signupEmail.value.trim();
-    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
-
-    if(signupEmail.value === "" || !emailRegex.test(signupEmail.value)) {
-        signupEmailError.textContent = "Please enter a valid email address.";
-        return;
-    }
-
-    const ubsRegex = /^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$/;
-    if(!ubsRegex.test(signupEmail.value)) {
-        signupEmailError.textContent = "Please enter a valid UBS email address.";
-        return;
-    }
-    signupEmailError.textContent = "";
-
-    signupUsername.value = signupUsername.value.trim();
-    if(signupUsername.value.length < 3) {
-        signupUsernameError.textContent = "Please enter at least 3 characters.";
-        return;
-    }
-    signupUsernameError.textContent = "";
-
-    signupPassword.value = signupPassword.value.trim();
-    if(signupPassword.value.length < 8) {
-        signupPasswordError.textContent = "Please enter at least 8 characters.";
-        return;
-    }
-    signupPasswordError.textContent = "";
-
     try {
-        const response = await fetch('/api/signup', {
+        let ubsRequired;
+        let ubsResponse = await fetch('/api/ubs');
+        if(ubsResponse.ok) {
+            ubsRequired = await ubsResponse.json();
+        } else {
+            console.error(await ubsResponse.text());
+            return;
+        }
+
+        signupEmail.value = signupEmail.value.trim();
+        const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
+
+        if(signupEmail.value === "" || !emailRegex.test(signupEmail.value)) {
+            signupEmailError.textContent = "Please enter a valid email address.";
+            return;
+        }
+
+        const ubsRegex = /^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$/;
+        if(ubsRequired && !ubsRegex.test(signupEmail.value)) {
+            signupEmailError.textContent = "Please enter a valid UBS email address.";
+            return;
+        }
+        signupEmailError.textContent = "";
+
+        signupUsername.value = signupUsername.value.trim();
+        if(signupUsername.value.length < 3) {
+            signupUsernameError.textContent = "Please enter at least 3 characters.";
+            return;
+        }
+        signupUsernameError.textContent = "";
+
+        signupPassword.value = signupPassword.value.trim();
+        if(signupPassword.value.length < 8) {
+            signupPasswordError.textContent = "Please enter at least 8 characters.";
+            return;
+        }
+        signupPasswordError.textContent = "";
+
+        const signupResponse = await fetch('/api/signup', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -284,7 +300,7 @@ async function signup() {
             })
         });
 
-        if (response.ok) {
+        if (signupResponse.ok) {
             openLogin();
             loginUsernameError.textContent = "Verification email sent.";
             loginPasswordError.textContent = "Please check your inbox.";
@@ -292,7 +308,7 @@ async function signup() {
             signupEmailError.textContent = "Something went wrong.";
             signupUsernameError.textContent = "Something went wrong.";
             signupPasswordError.textContent = "Something went wrong.";
-            console.error("Error:", await response.text());
+            console.error("Error:", await signupResponse.text());
         }
     } catch (error) {
         console.error("Error:", error);
@@ -301,7 +317,6 @@ async function signup() {
 
 profileReloadButton.addEventListener('click', getProfile);
 
-setupListeners();
-toggleMenu();
-openLogin();
-getProfile();
+document.addEventListener('DOMContentLoaded', () => {
+    initMenu();
+});

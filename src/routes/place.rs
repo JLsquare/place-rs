@@ -50,6 +50,10 @@ async fn draw(
 
     let time = Utc::now().timestamp();
 
+    if info.x >= appstate.get_size().0 as u32 || info.y >= appstate.get_size().1 as u32 {
+        return Err(error::ErrorBadRequest("invalid coordinates"));
+    }
+
     if user.cooldown - time > 0 {
         return Err(error::ErrorBadRequest(format!("cooldown not over : {}s", user.cooldown - time)));
     }
@@ -81,8 +85,13 @@ async fn get_username(
     path: web::Path<(u32, u32)>,
 ) -> Result<HttpResponse, Error> {
     let (x, y) = path.into_inner();
+
     let appstate = appstate.read()
         .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    if x >= appstate.get_size().0 as u32 || y >= appstate.get_size().1 as u32 {
+        return Err(error::ErrorBadRequest("invalid coordinates"));
+    }
 
     Ok(HttpResponse::Ok().body(appstate.get_username_from_pixel(x as usize, y as usize)))
 }

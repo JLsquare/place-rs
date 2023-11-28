@@ -20,7 +20,7 @@ use crate::routes::place::{
     draw, get_leaderboard, get_png, get_size, get_updates, get_username,
     get_users_connected, get_users_count,
 };
-use crate::routes::user::{edit_profile, get_profile, login, signup, verify};
+use crate::routes::user::{edit_profile, get_profile, login, signup, ubs, verify};
 use crate::websocket::ws_index;
 
 #[actix_web::main]
@@ -101,7 +101,8 @@ async fn main() -> io::Result<()> {
             .service(edit_profile)
             .service(get_users_count)
             .service(get_users_connected)
-            .service(get_username);
+            .service(get_username)
+            .service(ubs);
 
         if serve_static {
             app = app.service(Files::new("/", "public").index_file("index.html"));

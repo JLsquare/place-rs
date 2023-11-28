@@ -20,7 +20,7 @@ pub enum AppStateError {
     #[error("Error connecting to the database")]
     DatabaseConnectionError,
     #[error("Error getting pixels")]
-    PixelFetchError,
+    PixelFetchError(String),
     #[error("Error getting users")]
     UserFetchError,
     #[error("SMTP configuration error")]
@@ -68,13 +68,14 @@ pub struct AppState {
     jwt_secret: String,
     smtp_user: String,
     url: String,
+    check_ubs_email: bool,
 }
 
 impl AppState {
     pub fn new(width: usize, height: usize) -> Result<Self, AppStateError> {
         let db = database::Database::new().map_err(|_| AppStateError::DatabaseConnectionError)?;
 
-        let (pixels_color, pixels_user) = db.get_pixels(width, height).map_err(|_| AppStateError::PixelFetchError)?;
+        let (pixels_color, pixels_user) = db.get_pixels(width, height).map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
 
         let users = db.get_users().map_err(|_| AppStateError::UserFetchError)?;
 
@@ -117,6 +118,11 @@ impl AppState {
 
         let url = env::var("URL").map_err(|_| AppStateError::EnvVarNotSet("URL".to_string()))?;
 
+        let check_ubs_email = env::var("CHECK_UBS_EMAIL")
+            .map_err(|_| AppStateError::EnvVarNotSet("CHECK_UBS_EMAIL".to_string()))?
+            .parse::<bool>()
+            .map_err(|_| AppStateError::InvalidValueError("CHECK_UBS_EMAIL".to_string()))?;
+
         Ok(Self {
             width,
             height,
@@ -138,10 +144,15 @@ impl AppState {
             png: Vec::new(),
             smtp_user,
             url,
+            check_ubs_email,
         })
     }
 
     pub fn draw(&mut self, x: usize, y: usize, user_id: u16, color: u8) -> Result<(), AppStateError> {
+        if x >= self.width || y >= self.height {
+            return Err(AppStateError::InvalidValueError("x or y out of bounds".to_string()));
+        }
+        
         let index = x * self.height + y;
         self.pixels_user[index] = user_id;
         self.pixels_color[index] = color;
@@ -224,7 +235,7 @@ impl AppState {
             .map_err(|_| AppStateError::DatabaseConnectionError)?;
 
         db.save_pixel_updates(&self.database_updates)
-            .map_err(|_| AppStateError::PixelFetchError)?;
+            .map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
 
         let mut users: Vec<&mut User> = self.users.values_mut().collect();
         users.sort_by(|a, b| b.score.cmp(&a.score));
@@ -309,5 +320,9 @@ impl AppState {
 
     pub fn jwt_secret(&self) -> &str {
         &self.jwt_secret
+    }
+
+    pub fn check_ubs_email(&self) -> bool {
+        self.check_ubs_email
     }
 }

@@ -109,6 +109,9 @@ async function getGrid() {
             ctx.fillStyle = colors[update.color];
             ctx.fillRect(update.x, update.y, 1, 1);
         });
+
+        canvas.width = sizeData[0];
+        canvas.height = sizeData[1];
     } catch (error) {
         console.error('Error loading grid:', error);
     }

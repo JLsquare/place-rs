@@ -75,26 +75,30 @@ async fn signup(
         return Err(error::ErrorBadRequest("Invalid email format"));
     }
 
-    if !appstate.ubs_regex().is_match(&info.email) {
-        return Err(error::ErrorBadRequest("Not a UBS email"));
-    }
+    let mut ubs_id = 0;
 
-    let ubs_id = appstate
-        .extract_id_regex()
-        .captures(&info.email)
-        .and_then(|captures| captures.get(1))
-        .and_then(|capture| {
-            let id_str = &capture.as_str()[1..];
-            id_str.parse::<u32>().ok()
-        })
-        .ok_or_else(|| error::ErrorBadRequest("Invalid email format"))?;
+    if appstate.check_ubs_email() {
+        if !appstate.ubs_regex().is_match(&info.email) {
+            return Err(error::ErrorBadRequest("Not a UBS email"));
+        }
 
-    let is_id_registered = database
-        .check_ubs_id(ubs_id)
-        .map_err(|_| error::ErrorInternalServerError("database error"))?;
+        ubs_id = appstate
+            .extract_id_regex()
+            .captures(&info.email)
+            .and_then(|captures| captures.get(1))
+            .and_then(|capture| {
+                let id_str = &capture.as_str()[1..];
+                id_str.parse::<u32>().ok()
+            })
+            .ok_or_else(|| error::ErrorBadRequest("Invalid email format"))?;
 
-    if is_id_registered {
-        return Err(error::ErrorBadRequest("UBS id already registered"));
+        let is_id_registered = database
+            .check_ubs_id(ubs_id)
+            .map_err(|_| error::ErrorInternalServerError("database error"))?;
+
+        if is_id_registered {
+            return Err(error::ErrorBadRequest("UBS id already registered"));
+        }
     }
 
     if info.username.len() < 3 || info.username.len() > 15 {
@@ -126,6 +130,15 @@ async fn signup(
         .map_err(|_| error::ErrorInternalServerError("email error"))?;
 
     Ok(HttpResponse::Ok().body("ok"))
+}
+
+#[get("/api/ubs")]
+async fn ubs(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+    let appstate = appstate
+        .read()
+        .map_err(|_| error::ErrorInternalServerError("appstate read error"))?;
+
+    Ok(HttpResponse::Ok().json(appstate.check_ubs_email()))
 }
 
 #[get("/api/verify/{token}")]
@@ -179,7 +192,11 @@ async fn edit_profile(
         return Err(error::ErrorBadRequest("username must be between 3 and 15 characters"));
     }
 
-    if appstate.is_username_taken(&info.username) {
+    let user = appstate
+        .get_user(user_id)
+        .ok_or_else(|| error::ErrorBadRequest("invalid user"))?;
+
+    if user.username != info.username && appstate.is_username_taken(&info.username) {
         return Err(error::ErrorBadRequest("username taken"));
     }
 
