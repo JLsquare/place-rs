@@ -195,7 +195,6 @@ input:focus {
 /* === MISCELLANEOUS STYLES === */
 .pixel-img {
     image-rendering: pixelated;
-    width: 100%;
 }
 
 .selected-pixel {
