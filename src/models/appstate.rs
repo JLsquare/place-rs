@@ -229,7 +229,10 @@ impl AppState {
         self.png = new_png;
 
         db.save_pixel_updates(&self.database_updates)
-            .map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
+            .map_err(|e| {
+                eprintln!("Error saving pixel updates: {}", e);
+                AppStateError::PixelFetchError(e.to_string())
+            })?;
 
         let mut users: Vec<&mut User> = self.users.values_mut().collect();
         users.sort_by(|a, b| b.score.cmp(&a.score));
@@ -247,8 +250,8 @@ impl AppState {
         (self.width, self.height)
     }
 
-    pub fn get_png(&self) -> Vec<u8> {
-        self.png.clone()
+    pub fn get_png(&self) -> &Vec<u8> {
+        &self.png
     }
 
     pub fn get_message_updates(&self) -> Vec<MessageUpdate> {

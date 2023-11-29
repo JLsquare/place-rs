@@ -26,7 +26,7 @@ async fn get_png(
     appstate.try_update(&database)
         .map_err(|err| eprintln!("appstate error: {}", err)).ok();
 
-    Ok(HttpResponse::Ok().content_type("image/png").body(appstate.get_png()))
+    Ok(HttpResponse::Ok().content_type("image/png").body(appstate.get_png().clone()))
 }
 
 #[get("/api/updates")]
