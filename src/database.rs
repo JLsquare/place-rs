@@ -259,7 +259,7 @@ impl Database {
         let tx = connection.transaction()?;
         {
             let mut statement = tx.prepare(
-                "INSERT INTO pixels (x, y, color, user, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
+                "INSERT OR IGNORE INTO pixels (x, y, color, user, timestamp) VALUES (?1, ?2, ?3, ?4, ?5)",
             )?;
 
             for update in updates {
