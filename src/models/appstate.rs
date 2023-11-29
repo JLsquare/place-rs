@@ -3,22 +3,20 @@ use std::sync::RwLock;
 use std::{env, fs};
 
 use actix::Addr;
+use actix_web::web;
 use chrono::Utc;
 use image::{ImageBuffer, Rgb};
 use lettre::{transport::smtp, Transport};
 use regex::Regex;
 use thiserror::Error;
 
-use crate::database;
-use crate::database::DatabaseUpdate;
+use crate::database::{Database, DatabaseUpdate};
 use crate::models::user::User;
 use crate::models::utils::{hex_to_rgb, ColorFile};
 use crate::websocket::{MessageUpdate, PlaceWebSocketConnection};
 
 #[derive(Error, Debug)]
 pub enum AppStateError {
-    #[error("Error connecting to the database")]
-    DatabaseConnectionError,
     #[error("Error getting pixels")]
     PixelFetchError(String),
     #[error("Error getting users")]
@@ -72,9 +70,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(width: usize, height: usize) -> Result<Self, AppStateError> {
-        let db = database::Database::new().map_err(|_| AppStateError::DatabaseConnectionError)?;
-
+    pub fn new(width: usize, height: usize, db: &Database) -> Result<Self, AppStateError> {
         let (pixels_color, pixels_user) = db.get_pixels(width, height).map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
 
         let users = db.get_users().map_err(|_| AppStateError::UserFetchError)?;
@@ -209,11 +205,12 @@ impl AppState {
         Ok(())
     }
 
-    pub fn try_update(&mut self) -> Result<(), AppStateError> {
+    pub fn try_update(&mut self, db: &web::Data<Database>) -> Result<(), AppStateError> {
         let time = Utc::now().timestamp();
         if time - self.last_update < self.update_cooldown as i64 {
             return Ok(());
         }
+        self.last_update = time;
 
         let image = ImageBuffer::from_fn(self.width as u32, self.height as u32, |x, y| {
             let index = (x as usize) * self.height + (y as usize);
@@ -231,9 +228,6 @@ impl AppState {
 
         self.png = new_png;
 
-        let mut db = database::Database::new()
-            .map_err(|_| AppStateError::DatabaseConnectionError)?;
-
         db.save_pixel_updates(&self.database_updates)
             .map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
 
@@ -245,7 +239,6 @@ impl AppState {
 
         self.database_updates.clear();
         self.message_updates.clear();
-        self.last_update = time;
 
         Ok(())
     }

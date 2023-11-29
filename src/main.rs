@@ -62,13 +62,16 @@ async fn main() -> io::Result<()> {
         .expect("SERVE_STATIC should be a valid bool");
 
     let database = Database::new().expect("Error connecting to database");
+
     database.create_tables().expect("Error creating tables");
 
-    let mut appstate = AppState::new(width, height).expect("Error creating appstate");
-    appstate.try_update().expect("Error updating appstate");
+    let mut appstate = AppState::new(width, height, &database).expect("Error creating appstate");
+
+    let mut database = web::Data::new(database);
+
+    appstate.try_update(&mut database).expect("Error updating appstate");
 
     let appstate = web::Data::new(RwLock::new(appstate));
-    let database = web::Data::new(database);
 
     let governor_conf = GovernorConfigBuilder::default()
         .per_second(per_second)

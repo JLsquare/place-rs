@@ -251,7 +251,7 @@ impl Database {
     }
 
     pub fn save_pixel_updates(
-        &mut self,
+        &self,
         updates: &Vec<DatabaseUpdate>,
     ) -> Result<(), DatabaseError> {
         let mut connection = self.pool.get()?;

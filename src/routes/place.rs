@@ -4,6 +4,7 @@ use actix_web::{get, post, web, HttpRequest, HttpResponse, Error, error};
 use chrono::Utc;
 use serde_derive::Deserialize;
 
+use crate::database::Database;
 use crate::models::appstate::AppState;
 use crate::routes::utils::token_to_id;
 
@@ -15,11 +16,14 @@ struct DrawInfo {
 }
 
 #[get("/api/png")]
-async fn get_png(appstate: web::Data<RwLock<AppState>>) -> Result<HttpResponse, Error> {
+async fn get_png(
+    appstate: web::Data<RwLock<AppState>>,
+    database: web::Data<Database>,
+) -> Result<HttpResponse, Error> {
     let mut appstate = appstate.write()
         .map_err(|_| error::ErrorInternalServerError("appstate write error"))?;
 
-    appstate.try_update()
+    appstate.try_update(&database)
         .map_err(|err| eprintln!("appstate error: {}", err)).ok();
 
     Ok(HttpResponse::Ok().content_type("image/png").body(appstate.get_png()))
@@ -36,6 +40,7 @@ async fn get_updates(appstate: web::Data<RwLock<AppState>>) -> Result<HttpRespon
 #[post("/api/draw")]
 async fn draw(
     appstate: web::Data<RwLock<AppState>>,
+    database: web::Data<Database>,
     info: web::Json<DrawInfo>,
     req: HttpRequest,
 ) -> Result<HttpResponse, Error> {
@@ -65,7 +70,7 @@ async fn draw(
     appstate.draw(info.x as usize, info.y as usize, user_id, info.color)
         .map_err(|err| error::ErrorInternalServerError(format!("appstate error: {}", err)))?;
 
-    appstate.try_update()
+    appstate.try_update(&database)
         .map_err(|err| eprintln!("appstate error: {}", err)).ok();
 
     Ok(HttpResponse::Ok().json(appstate.cooldown()))
