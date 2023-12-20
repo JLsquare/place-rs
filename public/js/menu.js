@@ -120,7 +120,7 @@ async function saveProfile() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                username: profileUsername.value,
+                username: profileUsername.value.toLowerCase(),
                 password: profilePassword.value,
                 current_password: profileCurrentPassword.value
             })
@@ -228,7 +228,7 @@ async function login() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                username: loginUsername.value,
+                username: loginUsername.value.toLowerCase(),
                 password: loginPassword.value
             })
         });
@@ -294,8 +294,8 @@ async function signup() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                email: signupEmail.value,
-                username: signupUsername.value,
+                email: signupEmail.value.toLowerCase(),
+                username: signupUsername.value.toLowerCase(),
                 password: signupPassword.value
             })
         });
