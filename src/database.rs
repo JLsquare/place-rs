@@ -34,8 +34,8 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> Result<Self, DatabaseError> {
-        let db_url: String = env::var("DB_URL").expect("DB_URL environment variable not set");
-        let manager = SqliteConnectionManager::file(db_url);
+        let db_path: String = env::var("DB_PATH").expect("DB_PATH environment variable not set");
+        let manager = SqliteConnectionManager::file(db_path);
         let pool = r2d2::Pool::new(manager)?;
         Ok(Self { pool })
     }
@@ -52,8 +52,7 @@ impl Database {
                 password TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 verification_code TEXT NOT NULL,
-                verified INTEGER NOT NULL DEFAULT 0,
-                ubs_id INTEGER NOT NULL
+                verified INTEGER NOT NULL DEFAULT 0
             )",
             [],
         )?;
@@ -81,29 +80,16 @@ impl Database {
         password: &str,
         email: &str,
         verification_code: &str,
-        ubs_id: u32,
     ) -> Result<u16, DatabaseError> {
         let hash = bcrypt::hash(password, bcrypt::DEFAULT_COST)?;
         let connection = self.pool.get()?;
 
         connection.execute(
-            "INSERT INTO users (username, password, email, verification_code, ubs_id) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![username, &hash, email, verification_code, ubs_id],
+            "INSERT INTO users (username, password, email, verification_code) VALUES (?1, ?2, ?3, ?4)",
+            params![username, &hash, email, verification_code],
         )?;
 
         Ok(connection.last_insert_rowid() as u16)
-    }
-
-    pub fn check_ubs_id(&self, ubs_id: u32) -> Result<bool, DatabaseError> {
-        let connection = self.pool.get()?;
-
-        let mut statement = connection.prepare("SELECT user_id FROM users WHERE ubs_id = ?1")?;
-        let mut rows = statement.query(params![ubs_id])?;
-        if rows.next()?.is_some() {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
     }
 
     pub fn verify(&self, verification_code: &str) -> Result<u16, DatabaseError> {
@@ -250,10 +236,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn save_pixel_updates(
-        &self,
-        updates: &Vec<DatabaseUpdate>,
-    ) -> Result<(), DatabaseError> {
+    pub fn save_pixel_updates(&self, updates: &Vec<DatabaseUpdate>) -> Result<(), DatabaseError> {
         let mut connection = self.pool.get()?;
 
         let tx = connection.transaction()?;

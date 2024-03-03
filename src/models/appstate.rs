@@ -60,64 +60,69 @@ pub struct AppState {
     mailer: lettre::SmtpTransport,
     sessions: RwLock<Vec<Addr<PlaceWebSocketConnection>>>,
     email_regex: Regex,
-    ubs_regex: Regex,
-    extract_id_regex: Regex,
     cooldown: u16,
     jwt_secret: String,
     smtp_user: String,
     url: String,
-    check_ubs_email: bool,
 }
 
 impl AppState {
     pub fn new(width: usize, height: usize, db: &Database) -> Result<Self, AppStateError> {
-        let (pixels_color, pixels_user) = db.get_pixels(width, height).map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
+        let (pixels_color, pixels_user) = db
+            .get_pixels(width, height)
+            .map_err(|e| AppStateError::PixelFetchError(e.to_string()))?;
 
         let users = db.get_users().map_err(|_| AppStateError::UserFetchError)?;
 
-        let smtp_server = env::var("SMTP_SERVER").map_err(|_| AppStateError::EnvVarNotSet("SMTP_SERVER".to_string()))?;
+        let smtp_server = env::var("SMTP_SERVER")
+            .map_err(|_| AppStateError::EnvVarNotSet("SMTP_SERVER".to_string()))?;
         let smtp_port: u16 = env::var("SMTP_PORT")
             .map_err(|_| AppStateError::EnvVarNotSet("SMTP_PORT".to_string()))?
             .parse()
             .map_err(|_| AppStateError::InvalidValueError("SMTP_PORT".to_string()))?;
-        let smtp_user = env::var("SMTP_USER").map_err(|_| AppStateError::EnvVarNotSet("SMTP_USER".to_string()))?;
-        let smtp_password = env::var("SMTP_PASSWORD").map_err(|_| AppStateError::EnvVarNotSet("SMTP_PASSWORD".to_string()))?;
+        let smtp_user = env::var("SMTP_USER")
+            .map_err(|_| AppStateError::EnvVarNotSet("SMTP_USER".to_string()))?;
+        let smtp_password = env::var("SMTP_PASSWORD")
+            .map_err(|_| AppStateError::EnvVarNotSet("SMTP_PASSWORD".to_string()))?;
 
         let mailer = lettre::SmtpTransport::starttls_relay(&smtp_server)
             .map_err(|_| AppStateError::SmtpConfigError)?
             .port(smtp_port)
-            .credentials(smtp::authentication::Credentials::new(smtp_user.clone(), smtp_password))
+            .credentials(smtp::authentication::Credentials::new(
+                smtp_user.clone(),
+                smtp_password,
+            ))
             .build();
 
-        let email_regex = Regex::new(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
-            .map_err(|_| AppStateError::RegexCompileError)?;
-        let ubs_regex = Regex::new(r"^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$")
-            .map_err(|_| AppStateError::RegexCompileError)?;
-        let extract_id_regex = Regex::new(r"(?P<id>e\d+)@")
-            .map_err(|_| AppStateError::RegexCompileError)?;
+        let email_regex =
+            Regex::new(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")
+                .map_err(|_| AppStateError::RegexCompileError)?;
 
         let cooldown = env::var("COOLDOWN_SEC")
             .map_err(|_| AppStateError::EnvVarNotSet("COOLDOWN_SEC".to_string()))?
             .parse::<u16>()
             .map_err(|_| AppStateError::InvalidValueError("COOLDOWN".to_string()))?;
 
-        let jwt_secret = env::var("JWT_SECRET").map_err(|_| AppStateError::EnvVarNotSet("JWT_SECRET".to_string()))?;
+        let jwt_secret = env::var("JWT_SECRET")
+            .map_err(|_| AppStateError::EnvVarNotSet("JWT_SECRET".to_string()))?;
 
         let update_cooldown = env::var("UPDATE_COOLDOWN_SEC")
             .map_err(|_| AppStateError::EnvVarNotSet("UPDATE_COOLDOWN_SEC".to_string()))?
             .parse::<u16>()
             .map_err(|_| AppStateError::InvalidValueError("UPDATE_COOLDOWN_SEC".to_string()))?;
 
-        let colors_str = fs::read_to_string("public/misc/colors.json").map_err(AppStateError::FileReadError)?;
-        let color_file = serde_json::from_str::<ColorFile>(&colors_str).map_err(AppStateError::JsonParseError)?;
-        let palette: Vec<(u8, u8, u8)> = color_file.colors.iter().map(|color| hex_to_rgb(color)).collect();
+        let colors_path = env::var("COLORS_PATH")
+            .map_err(|_| AppStateError::EnvVarNotSet("COLORS_PATH".to_string()))?;
+        let colors_str = fs::read_to_string(colors_path).map_err(AppStateError::FileReadError)?;
+        let color_file = serde_json::from_str::<ColorFile>(&colors_str)
+            .map_err(AppStateError::JsonParseError)?;
+        let palette: Vec<(u8, u8, u8)> = color_file
+            .colors
+            .iter()
+            .map(|color| hex_to_rgb(color))
+            .collect();
 
         let url = env::var("URL").map_err(|_| AppStateError::EnvVarNotSet("URL".to_string()))?;
-
-        let check_ubs_email = env::var("CHECK_UBS_EMAIL")
-            .map_err(|_| AppStateError::EnvVarNotSet("CHECK_UBS_EMAIL".to_string()))?
-            .parse::<bool>()
-            .map_err(|_| AppStateError::InvalidValueError("CHECK_UBS_EMAIL".to_string()))?;
 
         Ok(Self {
             width,
@@ -133,27 +138,35 @@ impl AppState {
             mailer,
             sessions: RwLock::new(Vec::new()),
             email_regex,
-            ubs_regex,
-            extract_id_regex,
             cooldown,
             jwt_secret,
             png: Vec::new(),
             smtp_user,
             url,
-            check_ubs_email,
         })
     }
 
-    pub fn draw(&mut self, x: usize, y: usize, user_id: u16, color: u8) -> Result<(), AppStateError> {
+    pub fn draw(
+        &mut self,
+        x: usize,
+        y: usize,
+        user_id: u16,
+        color: u8,
+    ) -> Result<(), AppStateError> {
         if x >= self.width || y >= self.height {
-            return Err(AppStateError::InvalidValueError("x or y out of bounds".to_string()));
+            return Err(AppStateError::InvalidValueError(
+                "x or y out of bounds".to_string(),
+            ));
         }
-        
+
         let index = x * self.height + y;
         self.pixels_user[index] = user_id;
         self.pixels_color[index] = color;
 
-        let user = self.users.get_mut(&user_id).ok_or_else(|| AppStateError::NoSuchUserError)?;
+        let user = self
+            .users
+            .get_mut(&user_id)
+            .ok_or_else(|| AppStateError::NoSuchUserError)?;
         user.cooldown = Utc::now().timestamp() + self.cooldown as i64;
         user.score += 1;
 
@@ -172,7 +185,10 @@ impl AppState {
     }
 
     pub fn send_verification_mail(&self, email: &str, token: &str) -> Result<(), AppStateError> {
-        let parsed_from = self.smtp_user.parse().map_err(|_| AppStateError::EmailParseError)?;
+        let parsed_from = self
+            .smtp_user
+            .parse()
+            .map_err(|_| AppStateError::EmailParseError)?;
         let parsed_to = email.parse().map_err(|_| AppStateError::EmailParseError)?;
 
         let email_body = format!(
@@ -187,18 +203,27 @@ impl AppState {
             .body(email_body)
             .map_err(|_| AppStateError::EmailCreationError)?;
 
-        self.mailer.send(&email).map_err(|_| AppStateError::EmailSendingError)?;
+        self.mailer
+            .send(&email)
+            .map_err(|_| AppStateError::EmailSendingError)?;
         Ok(())
     }
 
-    pub fn add_session(&self, session: Addr<PlaceWebSocketConnection>) -> Result<(), AppStateError> {
-        self.sessions.write()
+    pub fn add_session(
+        &self,
+        session: Addr<PlaceWebSocketConnection>,
+    ) -> Result<(), AppStateError> {
+        self.sessions
+            .write()
             .map(|mut sessions| sessions.push(session))
             .map_err(|_| AppStateError::SessionAddError)
     }
 
     fn broadcast(&self, msg: MessageUpdate) -> Result<(), AppStateError> {
-        let sessions = self.sessions.read().map_err(|_| AppStateError::SessionAddError)?;
+        let sessions = self
+            .sessions
+            .read()
+            .map_err(|_| AppStateError::SessionAddError)?;
         for session in sessions.iter() {
             session.do_send(msg);
         }
@@ -223,16 +248,20 @@ impl AppState {
             let mut cursor = std::io::Cursor::new(&mut new_png);
             image
                 .write_to(&mut cursor, image::ImageOutputFormat::Png)
-                .map_err(|_| AppStateError::FileReadError(std::io::Error::new(std::io::ErrorKind::Other, "Error writing image")))?;
+                .map_err(|_| {
+                    AppStateError::FileReadError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Error writing image",
+                    ))
+                })?;
         }
 
         self.png = new_png;
 
-        db.save_pixel_updates(&self.database_updates)
-            .map_err(|e| {
-                eprintln!("Error saving pixel updates: {}", e);
-                AppStateError::PixelFetchError(e.to_string())
-            })?;
+        db.save_pixel_updates(&self.database_updates).map_err(|e| {
+            eprintln!("Error saving pixel updates: {}", e);
+            AppStateError::PixelFetchError(e.to_string())
+        })?;
 
         let mut users: Vec<&mut User> = self.users.values_mut().collect();
         users.sort_by(|a, b| b.score.cmp(&a.score));
@@ -302,23 +331,11 @@ impl AppState {
         &self.email_regex
     }
 
-    pub fn ubs_regex(&self) -> &Regex {
-        &self.ubs_regex
-    }
-
-    pub fn extract_id_regex(&self) -> &Regex {
-        &self.extract_id_regex
-    }
-
     pub fn cooldown(&self) -> u16 {
         self.cooldown
     }
 
     pub fn jwt_secret(&self) -> &str {
         &self.jwt_secret
-    }
-
-    pub fn check_ubs_email(&self) -> bool {
-        self.check_ubs_email
     }
 }

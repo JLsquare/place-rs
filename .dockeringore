@@ -1,0 +1,9 @@
+data
+target
+Dockerfile
+docker-compose.yml
+LICENSE
+*.md
+.git
+.dockerignore
+.gitignore

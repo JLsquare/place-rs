@@ -250,26 +250,11 @@ async function login() {
 
 async function signup() {
     try {
-        let ubsRequired;
-        let ubsResponse = await fetch('/api/ubs');
-        if(ubsResponse.ok) {
-            ubsRequired = await ubsResponse.json();
-        } else {
-            console.error(await ubsResponse.text());
-            return;
-        }
-
         signupEmail.value = signupEmail.value.trim();
         const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$/;
 
         if(signupEmail.value === "" || !emailRegex.test(signupEmail.value)) {
             signupEmailError.textContent = "Please enter a valid email address.";
-            return;
-        }
-
-        const ubsRegex = /^[a-z0-9.]+@(etud\.)?univ-ubs\.fr$/;
-        if(ubsRequired && !ubsRegex.test(signupEmail.value)) {
-            signupEmailError.textContent = "Please enter a valid UBS email address.";
             return;
         }
         signupEmailError.textContent = "";

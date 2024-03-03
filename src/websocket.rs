@@ -1,7 +1,7 @@
 use std::sync::RwLock;
 
 use actix::{Actor, ActorContext, AsyncContext, Handler, Message, StreamHandler};
-use actix_web::{get, web, HttpRequest, HttpResponse, error, Error};
+use actix_web::{error, get, web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
 use serde_derive::Serialize;
 
@@ -23,10 +23,12 @@ impl Actor for PlaceWebSocketConnection {
     type Context = ws::WebsocketContext<Self>;
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        self.appstate.write()
+        self.appstate
+            .write()
             .map_err(|_| eprintln!("Error writing to app state"))
             .and_then(|appstate| {
-                appstate.add_session(ctx.address())
+                appstate
+                    .add_session(ctx.address())
                     .map_err(|err| eprintln!("Error adding session: {}", err))
             })
             .unwrap_or_else(|_| ctx.stop());

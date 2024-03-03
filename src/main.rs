@@ -3,30 +3,24 @@ mod models;
 mod routes;
 mod websocket;
 
-use std::{env, fs, io};
-use std::io::Write;
-use std::path::Path;
-use std::sync::RwLock;
-
+use crate::database::Database;
+use crate::models::appstate::AppState;
+use crate::routes::place::{
+    draw, get_leaderboard, get_png, get_size, get_updates, get_username, get_users_connected,
+    get_users_count,
+};
+use crate::routes::user::{edit_profile, get_profile, login, signup, verify};
+use crate::websocket::ws_index;
 use actix_cors::Cors;
 use actix_files::Files;
 use actix_governor::{Governor, GovernorConfigBuilder};
 use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
-
-use crate::database::Database;
-use crate::models::appstate::AppState;
-use crate::routes::place::{
-    draw, get_leaderboard, get_png, get_size, get_updates, get_username,
-    get_users_connected, get_users_count,
-};
-use crate::routes::user::{edit_profile, get_profile, login, signup, ubs, verify};
-use crate::websocket::ws_index;
+use std::sync::RwLock;
+use std::{env, io};
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
-    bundle_js().expect("Error bundling js");
-
     dotenv().ok();
 
     let width: usize = env::var("WIDTH")
@@ -56,11 +50,6 @@ async fn main() -> io::Result<()> {
         .parse()
         .expect("BURST_SIZE should be a valid u32");
 
-    let serve_static = env::var("SERVE_STATIC")
-        .expect("SERVE_STATIC must be set")
-        .parse()
-        .expect("SERVE_STATIC should be a valid bool");
-
     let database = Database::new().expect("Error connecting to database");
 
     database.create_tables().expect("Error creating tables");
@@ -69,7 +58,9 @@ async fn main() -> io::Result<()> {
 
     let mut database = web::Data::new(database);
 
-    appstate.try_update(&mut database).expect("Error updating appstate");
+    appstate
+        .try_update(&mut database)
+        .expect("Error updating appstate");
 
     let appstate = web::Data::new(RwLock::new(appstate));
 
@@ -80,7 +71,7 @@ async fn main() -> io::Result<()> {
         .expect("Error creating governor config");
 
     HttpServer::new(move || {
-        let mut app = App::new()
+        let app = App::new()
             .wrap(
                 Cors::default()
                     .allow_any_origin()
@@ -105,34 +96,11 @@ async fn main() -> io::Result<()> {
             .service(get_users_count)
             .service(get_users_connected)
             .service(get_username)
-            .service(ubs);
-
-        if serve_static {
-            app = app.service(Files::new("/", "public").index_file("index.html"));
-        }
+            .service(Files::new("/", "/var/www/html/").index_file("index.html"));
 
         app
     })
     .bind((bind_address, port))?
     .run()
     .await
-}
-
-fn bundle_js() -> io::Result<()> {
-    let input_dir = Path::new("public/js/");
-    let output_file_path = input_dir.join("bundle.js");
-
-    let mut bundle = fs::File::create(&output_file_path)?;
-
-    for entry in fs::read_dir(input_dir)? {
-        let entry = entry?;
-        let path = entry.path();
-        if path.is_file() && path.extension().map_or(false, |e| e == "js") && path != output_file_path {
-            let content = fs::read_to_string(&path)?;
-            writeln!(bundle, "// {}\n", path.display())?;
-            writeln!(bundle, "{}\n", content)?;
-        }
-    }
-
-    Ok(())
 }
