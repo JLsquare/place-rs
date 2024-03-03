@@ -15,7 +15,7 @@ FROM debian:buster-slim
 RUN apt-get update && apt-get install -y libssl1.1 sqlite3
 
 COPY --from=builder /usr/local/cargo/bin/place-rs /usr/local/bin/place-rs
-COPY ./public /var/www/html
+COPY --from=builder /usr/src/place-rs/public /var/www/html
 RUN mkdir /data
 RUN sqlite3 /data/database.db
 
